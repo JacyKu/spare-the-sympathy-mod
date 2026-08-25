@@ -1,6 +1,7 @@
 package sts.mod.client.dump;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import sts.mod.SpareTheSympathy;
 import sts.mod.sheet.CssWriter;
 import sts.mod.sheet.ManifestWriter;
 import sts.mod.sheet.SheetPacker;
@@ -31,9 +32,13 @@ public final class TextureSheetsWriter {
 		List<TextureEntry> statics = new ArrayList<>();
 		List<TextureEntry> animated = new ArrayList<>();
 		for (DumpRunner.RenderedItem item : items) {
-			if (item.animated()) {
+			if (item.animated() && !allFramesIdentical(item.frames())) {
 				animated.add(fitToCell(item));
 			} else {
+				if (item.animated()) {
+					SpareTheSympathy.LOGGER.info("[dump] collapsed {} to static ({} identical frames)", item.key(), item.frames().size());
+					item = new DumpRunner.RenderedItem(item.key(), List.of(item.frames().get(0)), List.of(1), item.texturePath(), false);
+				}
 				statics.add(fitToCell(item));
 			}
 		}
@@ -96,25 +101,47 @@ public final class TextureSheetsWriter {
 
 		int contentWidth = maxX - minX + 1;
 		int contentHeight = maxY - minY + 1;
-		int fitSize = CELL_SIZE - 8;
-		double scale = Math.min((double) fitSize / contentWidth, (double) fitSize / contentHeight);
-		int targetWidth = (int) Math.round(contentWidth * scale);
-		int targetHeight = (int) Math.round(contentHeight * scale);
+		// Integer scaling only: every rendered pixel stays a pixel. Content
+		// larger than the cell is scaled down by an integer factor (a 128px
+		// item lands at exactly 64px); smaller content is scaled up by an
+		// integer factor so small icons keep crisp, chunky pixels.
+		int maxContent = Math.max(contentWidth, contentHeight);
+		int factor;
+		if (maxContent > CELL_SIZE) {
+			factor = (maxContent + CELL_SIZE - 1) / CELL_SIZE;
+		} else {
+			factor = Math.max(1, CELL_SIZE / maxContent);
+		}
+		int targetWidth = Math.max(1, (contentWidth + factor - 1) / factor);
+		int targetHeight = Math.max(1, (contentHeight + factor - 1) / factor);
 		int offsetX = (CELL_SIZE - targetWidth) / 2;
 		int offsetY = (CELL_SIZE - targetHeight) / 2;
 
 		for (int[] frame : item.frames()) {
 			int[] fitted = new int[CELL_SIZE * CELL_SIZE];
 			for (int y = 0; y < targetHeight; y++) {
-				int srcY = minY + (int) (y / scale);
+				int srcY = minY + (y * contentHeight) / targetHeight;
 				for (int x = 0; x < targetWidth; x++) {
-					int srcX = minX + (int) (x / scale);
+					int srcX = minX + (x * contentWidth) / targetWidth;
 					fitted[(offsetY + y) * CELL_SIZE + offsetX + x] = frame[srcY * captureSize + srcX];
 				}
 			}
 			frames.add(fitted);
 		}
 		return new TextureEntry(item.key(), frames, item.dwells(), item.texturePath(), CELL_SIZE, CELL_SIZE, CELL_SIZE, CELL_SIZE);
+	}
+
+	private static boolean allFramesIdentical(List<int[]> frames) {
+		if (frames.size() < 2) {
+			return false;
+		}
+		int[] first = frames.get(0);
+		for (int index = 1; index < frames.size(); index++) {
+			if (!java.util.Arrays.equals(first, frames.get(index))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private static void writeSheet(Path outputDir, String fileName, SheetPacker.PackResult pack, List<TextureEntry> entries,

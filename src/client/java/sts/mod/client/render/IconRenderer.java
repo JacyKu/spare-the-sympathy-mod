@@ -3,12 +3,21 @@ package sts.mod.client.render;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
@@ -36,6 +45,13 @@ public final class IconRenderer {
 	/** Returns CAPTURE_SIZE*CAPTURE_SIZE ints in NativeImage RGBA packing. */
 	public int[] render(ItemStack stack) {
 		Minecraft minecraft = Minecraft.getInstance();
+		BakedModel model = minecraft.getItemRenderer().getModel(stack, null, null, 0);
+		return render(stack, model);
+	}
+
+	/** Renders with a custom baked model (used for per-frame flat item models). */
+	public int[] render(ItemStack stack, BakedModel model) {
+		Minecraft minecraft = Minecraft.getInstance();
 		RenderTarget main = minecraft.getMainRenderTarget();
 		Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
 		VertexSorting savedSorting = RenderSystem.getVertexSorting();
@@ -56,8 +72,11 @@ public final class IconRenderer {
 			RenderSystem.applyModelViewMatrix();
 
 			GuiGraphics graphics = new GuiGraphics(minecraft, minecraft.renderBuffers().bufferSource());
-			graphics.renderItem(stack, 0, 0);
-			graphics.flush();
+			if (FrameItemModel.isFrameModel(model)) {
+				renderFlatQuads(graphics, model);
+			} else {
+				renderItemVanilla(graphics, stack, model);
+			}
 
 			modelViewStack.popPose();
 			RenderSystem.applyModelViewMatrix();
@@ -68,6 +87,53 @@ public final class IconRenderer {
 			GlStateManager._viewport(0, 0, main.width, main.height);
 			minecraft.getMainRenderTarget().bindWrite(false);
 		}
+	}
+
+	/**
+	 * Renders a baked model with an explicit pose through the vanilla item
+	 * renderer (3D models: directional quads, transforms, block lighting).
+	 * The flush must happen while the flat lighting is active (the lighting
+	 * state is applied when the buffered quads are drawn).
+	 */
+	private static void renderItemVanilla(GuiGraphics graphics, ItemStack stack, BakedModel model) {
+		Minecraft minecraft = Minecraft.getInstance();
+		PoseStack pose = graphics.pose();
+		pose.pushPose();
+		pose.translate(8.0F, 8.0F, 150.0F);
+		pose.mulPoseMatrix(new Matrix4f().scaling(1.0F, -1.0F, 1.0F));
+		pose.scale(16.0F, 16.0F, 16.0F);
+		boolean flat = !model.usesBlockLight();
+		if (flat) {
+			Lighting.setupForFlatItems();
+		}
+		minecraft.getItemRenderer().render(stack, ItemDisplayContext.GUI, false, pose, graphics.bufferSource(),
+			15728880, OverlayTexture.NO_OVERLAY, model);
+		graphics.flush();
+		if (flat) {
+			Lighting.setupFor3DItems();
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * Draws the flat per-frame model's quads directly into the buffer. The
+	 * FrameModel only emits quads for the null direction; the item render
+	 * type binds the block atlas in its setup state.
+	 */
+	private static void renderFlatQuads(GuiGraphics graphics, BakedModel model) {
+		PoseStack pose = graphics.pose();
+		pose.pushPose();
+		pose.translate(8.0F, 8.0F, 150.0F);
+		pose.mulPoseMatrix(new Matrix4f().scaling(1.0F, -1.0F, 1.0F));
+		pose.scale(16.0F, 16.0F, 16.0F);
+		Lighting.setupForFlatItems();
+		VertexConsumer consumer = graphics.bufferSource().getBuffer(RenderType.itemEntityTranslucentCull(InventoryMenu.BLOCK_ATLAS));
+		for (BakedQuad quad : model.getQuads(null, null, RandomSource.create())) {
+			consumer.putBulkData(pose.last(), quad, 1.0F, 1.0F, 1.0F, 15728880, OverlayTexture.NO_OVERLAY);
+		}
+		graphics.flush();
+		Lighting.setupFor3DItems();
+		pose.popPose();
 	}
 
 	public static void writeDebugPng(String fileName, int[] pixels, int size) {
