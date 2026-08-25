@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "sparethesympathy",
+	"version": "${version}",
+	"name": "Spare the Sympathy",
+	"description": "Dumps every texture from the loaded Monumenta resource pack into STS-compatible spritesheets, including animated and oversized textures.",
+	"authors": [
+		"deepa.cat"
+	],
+	"license": "CC0-1.0",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"sts.mod.SpareTheSympathy"
+		],
+		"client": [
+			"sts.mod.client.SpareTheSympathyClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.18.6",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*",
+		"citresewn": ">=1.1.4 <=1.1.5"
+	}
+}

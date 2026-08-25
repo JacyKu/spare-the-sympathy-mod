@@ -1,0 +1,86 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+	maven {
+		url = 'https://api.modrinth.com/maven'
+		content {
+			includeGroup 'maven.modrinth'
+		}
+	}
+	mavenCentral()
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"sparethesympathy" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+	modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
+	modLocalRuntime "maven.modrinth:cit-resewn:${project.cit_resewn_version}"
+	modLocalRuntime "maven.modrinth:cit-resewn-defaults:${project.cit_resewn_version}"
+
+	testImplementation sourceSets.client.output
+	testImplementation sourceSets.client.compileClasspath
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+	useJUnitPlatform()
+	def nativesOutput = file("${layout.buildDirectory.get().asFile}/test-natives")
+	inputs.files(configurations.minecraftNatives)
+	doFirst {
+		copy {
+			from { configurations.minecraftNatives.collect { zipTree(it) } }
+			into nativesOutput
+			duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+		}
+		systemProperty "org.lwjgl.librarypath", nativesOutput
+	}
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 17
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+	inputs.property "projectName", project.name
+
+	from("LICENSE") {
+		rename { "${it}_${project.name}"}
+	}
+}

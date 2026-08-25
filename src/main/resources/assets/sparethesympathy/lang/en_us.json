@@ -1,0 +1,7 @@
+{
+	"mod": {
+		"sts.command.dump.start": "Dumping pack textures...",
+		"sts.command.dump.done": "Dump complete: %s textures (%s animated) into %s",
+		"sts.command.dump.failed": "Dump failed: %s"
+	}
+}
