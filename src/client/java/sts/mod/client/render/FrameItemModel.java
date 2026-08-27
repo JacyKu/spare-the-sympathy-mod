@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.BlockModelRotation;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +22,7 @@ import sts.mod.SpareTheSympathy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Rebuilds the builtin/generated ("flat") item model from a SINGLE animation
@@ -83,6 +85,14 @@ public final class FrameItemModel {
 	public static boolean isFlatItem(ItemStack stack, BakedModel model) {
 		Item item = stack.getItem();
 		if (item == Items.BOW || item == Items.CROSSBOW || item == Items.SHIELD) {
+			return false;
+		}
+		// 3D block models (blockbench CIT models, shulker boxes, glazed
+		// terracotta, ...) use block lighting; flat builtin/generated models
+		// never do. Check this BEFORE the span-quad heuristic below: complex
+		// 3D models have many small detail elements whose tiny UV regions
+		// make them look "flat" by quad shape alone.
+		if (model.usesBlockLight()) {
 			return false;
 		}
 		// The builtin/generated flat model is a pixel-span construction: many
@@ -160,6 +170,88 @@ public final class FrameItemModel {
 	/** True for models built by {@link #forFrame} (flat per-frame quads). */
 	public static boolean isFrameModel(BakedModel model) {
 		return model instanceof FrameModel;
+	}
+
+	private static final ResourceLocation MISSINGNO = new ResourceLocation("minecraft", "missingno");
+
+	/** True when the sprite is the missing-texture placeholder. */
+	public static boolean isMissingno(TextureAtlasSprite sprite) {
+		return sprite != null && MISSINGNO.equals(sprite.contents().name());
+	}
+
+	/** True when any quad of the model references the missing-texture sprite. */
+	public static boolean containsMissingno(BakedModel model) {
+		return anyQuad(model, quad -> isMissingno(quad.getSprite()));
+	}
+
+	/**
+	 * Wraps a model and drops every quad whose sprite is the missing-texture
+	 * placeholder. Some CIT source models in the Monumenta pack reference
+	 * texture paths that never resolve (ETF logs "Missing textures in model");
+	 * without the filter the captured icon carries purple/black patches.
+	 */
+	public static BakedModel withoutMissingno(BakedModel original) {
+		return new FilteredModel(original, quad -> !isMissingno(quad.getSprite()));
+	}
+
+	private static boolean anyQuad(BakedModel model, Predicate<BakedQuad> test) {
+		for (Direction direction : Direction.values()) {
+			for (BakedQuad quad : model.getQuads(null, direction, RandomSource.create())) {
+				if (test.test(quad)) {
+					return true;
+				}
+			}
+		}
+		for (BakedQuad quad : model.getQuads(null, null, RandomSource.create())) {
+			if (test.test(quad)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** A baked model that forwards everything but filters its quads. */
+	private record FilteredModel(BakedModel original, Predicate<BakedQuad> keep) implements BakedModel {
+		@Override
+		public List<BakedQuad> getQuads(BlockState state, Direction direction, RandomSource random) {
+			List<BakedQuad> quads = original.getQuads(state, direction, random);
+			return quads.stream().filter(keep).toList();
+		}
+
+		@Override
+		public boolean useAmbientOcclusion() {
+			return original.useAmbientOcclusion();
+		}
+
+		@Override
+		public boolean isGui3d() {
+			return original.isGui3d();
+		}
+
+		@Override
+		public boolean usesBlockLight() {
+			return original.usesBlockLight();
+		}
+
+		@Override
+		public boolean isCustomRenderer() {
+			return original.isCustomRenderer();
+		}
+
+		@Override
+		public TextureAtlasSprite getParticleIcon() {
+			return original.getParticleIcon();
+		}
+
+		@Override
+		public net.minecraft.client.renderer.block.model.ItemTransforms getTransforms() {
+			return original.getTransforms();
+		}
+
+		@Override
+		public net.minecraft.client.renderer.block.model.ItemOverrides getOverrides() {
+			return original.getOverrides();
+		}
 	}
 
 	private static List<BakedQuad> generateQuads(TextureAtlasSprite sprite, int frame) {

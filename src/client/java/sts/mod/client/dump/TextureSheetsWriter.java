@@ -37,7 +37,7 @@ public final class TextureSheetsWriter {
 			} else {
 				if (item.animated()) {
 					SpareTheSympathy.LOGGER.info("[dump] collapsed {} to static ({} identical frames)", item.key(), item.frames().size());
-					item = new DumpRunner.RenderedItem(item.key(), List.of(item.frames().get(0)), List.of(1), item.texturePath(), false);
+					item = new DumpRunner.RenderedItem(item.key(), List.of(item.frames().get(0)), List.of(1), item.texturePath(), false, item.retry());
 				}
 				statics.add(fitToCell(item));
 			}

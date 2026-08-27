@@ -33,23 +33,31 @@ public final class AnimatedIconRenderer {
 	}
 
 	public static Capture capture(ItemStack stack, IconRenderer iconRenderer) {
-		Minecraft minecraft = Minecraft.getInstance();
-		BakedModel model = minecraft.getItemRenderer().getModel(stack, null, null, 0);
+		return capture(stack, iconRenderer, Minecraft.getInstance().getItemRenderer().getModel(stack, null, null, 0));
+	}
 
+	/**
+	 * Captures with an explicit baked model (the caller may have wrapped it,
+	 * e.g. to drop missing-texture quads). The model is used for every frame;
+	 * callers that want late CIT-model bakes picked up should resolve the
+	 * model themselves after the textures have settled (see DumpRunner's
+	 * warm-up pass).
+	 */
+	public static Capture capture(ItemStack stack, IconRenderer iconRenderer, BakedModel model) {
 		List<TextureAtlasSprite> animatedSprites = animatedSprites(model);
 		if (animatedSprites.isEmpty()) {
-			return staticCapture(iconRenderer, stack);
+			return staticCapture(iconRenderer, stack, model);
 		}
 
 		TextureAtlasSprite primary = animatedSprites.get(0);
 		SpriteContents contents = primary.contents();
 		Object primaryTexture = animatedTextureOf(contents);
 		if (primaryTexture == null) {
-			return staticCapture(iconRenderer, stack);
+			return staticCapture(iconRenderer, stack, model);
 		}
 		List<?> playback = animFramesOf(primaryTexture);
 		if (playback == null || playback.size() <= 1) {
-			return staticCapture(iconRenderer, stack);
+			return staticCapture(iconRenderer, stack, model);
 		}
 
 		// Upload frames for EVERY animated sprite of the model, not just the
@@ -68,7 +76,7 @@ public final class AnimatedIconRenderer {
 			}
 		}
 		if (textures.isEmpty()) {
-			return staticCapture(iconRenderer, stack);
+			return staticCapture(iconRenderer, stack, model);
 		}
 
 		logQuadUvs(stack, model, sprites);
@@ -94,10 +102,27 @@ public final class AnimatedIconRenderer {
 					uploadFrame(textures.get(spriteIndex), sprites.get(spriteIndex), cell);
 				}
 				if (flatItem) {
-					BakedModel frameModel = FrameItemModel.forFrame(model, sprites, cells);
+					// Rebuild the flat model from ALL the model's sprites, not
+					// just the animated ones: static base layers (e.g. the
+					// Mimic's body, the Sketched Bag's base) would otherwise
+					// vanish, leaving only the animated overlay. Animated
+					// sprites sample their current cell; static ones sample
+					// frame 0. Missing-texture placeholders are dropped.
+					List<TextureAtlasSprite> frameSprites = new ArrayList<>();
+					List<Integer> frameCells = new ArrayList<>();
+					for (TextureAtlasSprite sprite : allSprites(model)) {
+						if (FrameItemModel.isMissingno(sprite)) {
+							continue;
+						}
+						frameSprites.add(sprite);
+						int animatedIndex = sprites.indexOf(sprite);
+						frameCells.add(animatedIndex >= 0 ? cells[animatedIndex] : 0);
+					}
+					int[] cellsForFrame = frameCells.stream().mapToInt(Integer::intValue).toArray();
+					BakedModel frameModel = FrameItemModel.forFrame(model, frameSprites, cellsForFrame);
 					frames.add(iconRenderer.render(stack, frameModel));
 				} else {
-					frames.add(iconRenderer.render(stack));
+					frames.add(iconRenderer.render(stack, model));
 				}
 				if (flatItem && frameIndex < 8) {
 					int opaque = 0;
@@ -120,8 +145,12 @@ public final class AnimatedIconRenderer {
 			return new Capture(frames, dwells, texturePath, true);
 		} catch (Throwable throwable) {
 			SpareTheSympathy.LOGGER.warn("Animated capture failed for {}, falling back to static", stack, throwable);
-			return staticCapture(iconRenderer, stack);
+			return staticCapture(iconRenderer, stack, model);
 		}
+	}
+
+	private static Capture staticCapture(IconRenderer iconRenderer, ItemStack stack, BakedModel model) {
+		return new Capture(List.of(iconRenderer.render(stack, model)), List.of(1), null, false);
 	}
 
 	private static Capture staticCapture(IconRenderer iconRenderer, ItemStack stack) {

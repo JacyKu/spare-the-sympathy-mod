@@ -10,12 +10,15 @@ import sts.mod.api.MonumentaItemDefinition;
 import sts.mod.api.MonumentaItemRepository;
 import sts.mod.api.MonumentaStackFactory;
 import sts.mod.client.render.AnimatedIconRenderer;
+import sts.mod.client.render.FrameItemModel;
 import sts.mod.client.render.IconRenderer;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -37,7 +40,7 @@ public final class DumpRunner {
 	});
 	private static final long HEAD_RETRY_DELAY_MILLIS = 3_000L;
 
-	public record RenderedItem(String key, List<int[]> frames, List<Integer> dwells, String texturePath, boolean animated) {
+	public record RenderedItem(String key, List<int[]> frames, List<Integer> dwells, String texturePath, boolean animated, boolean retry) {
 	}
 
 	private static final class PendingDump {
@@ -55,11 +58,11 @@ public final class DumpRunner {
 
 	private static final class PendingRetry {
 		final PendingDump dump;
-		final List<MonumentaItemDefinition> heads;
+		final Set<String> retryKeys;
 
-		PendingRetry(PendingDump dump, List<MonumentaItemDefinition> heads) {
+		PendingRetry(PendingDump dump, Set<String> retryKeys) {
 			this.dump = dump;
-			this.heads = heads;
+			this.retryKeys = retryKeys;
 		}
 	}
 
@@ -123,7 +126,7 @@ public final class DumpRunner {
 
 	private static void renderItems(PendingDump pending) {
 		try {
-			SpareTheSympathy.LOGGER.info("[dump] build tag 20260824i");
+			SpareTheSympathy.LOGGER.info("[dump] build tag 20260826a");
 			runSelfTest(pending.outputDir);
 			IconRenderer iconRenderer = new IconRenderer();
 			List<MonumentaItemDefinition> heads = new ArrayList<>();
@@ -131,12 +134,37 @@ public final class DumpRunner {
 			boolean wroteStaticDebug = false;
 			boolean wroteAnimDebug = false;
 
+			// Warm-up pass: render every item once, discarded. CIT item models
+			// and textures (the Monumenta pack's optifine/cit entries) load
+			// asynchronously; the first getModel() for an item bakes the flat
+			// FALLBACK (the base item's texture) while the real model loads on
+			// a worker thread. By the time the real pass reaches each item,
+			// its model has baked, so skinned items capture their true model
+			// instead of the flat fallback.
+			for (MonumentaItemDefinition definition : pending.items) {
+				try {
+					iconRenderer.render(cleanStack(MonumentaStackFactory.createStack(definition)));
+				} catch (Throwable throwable) {
+					SpareTheSympathy.LOGGER.warn("Warm-up render failed for '{}': {}", definition.key(), throwable.toString());
+				}
+			}
+
 			for (int index = 0; index < pending.items.size(); index++) {
 				MonumentaItemDefinition definition = pending.items.get(index);
 				ItemStack stack = cleanStack(MonumentaStackFactory.createStack(definition));
 				AnimatedIconRenderer.Capture capture;
+				boolean missingno = false;
 				try {
-					capture = AnimatedIconRenderer.capture(stack, iconRenderer);
+					var model = Minecraft.getInstance().getItemRenderer().getModel(stack, null, null, 0);
+					// Some CIT source models reference texture paths that never
+					// resolve (pack/ETF mismatch); drop their missing-texture
+					// quads so the captured icon has no purple/black patches.
+					missingno = FrameItemModel.containsMissingno(model);
+					if (missingno) {
+						model = FrameItemModel.withoutMissingno(model);
+						SpareTheSympathy.LOGGER.info("[dump] dropped missingno quads for '{}'", definition.key());
+					}
+					capture = AnimatedIconRenderer.capture(stack, iconRenderer, model);
 				} catch (Throwable throwable) {
 					SpareTheSympathy.LOGGER.warn("Capture failed for '{}': {}", definition.key(), throwable.toString());
 					capture = new AnimatedIconRenderer.Capture(List.of(iconRenderer.render(stack)), List.of(1), null, false);
@@ -155,7 +183,12 @@ public final class DumpRunner {
 				if (capture.animated()) {
 					animatedCount++;
 				}
-				pending.rendered.add(new RenderedItem(definition.key(), capture.frames(), capture.dwells(), capture.texturePath(), capture.animated()));
+				// Flag for the settle retry: the CIT model was still baking
+				// (mixed geometry across frames) or referenced missing
+				// textures. The retry re-captures after a delay, when the
+				// async model load has finished.
+				boolean retry = missingno || inconsistentFrames(capture.frames());
+				pending.rendered.add(new RenderedItem(definition.key(), capture.frames(), capture.dwells(), capture.texturePath(), capture.animated(), retry));
 				if (!wroteStaticDebug && !capture.animated()) {
 					IconRenderer.writeDebugPng(pending.outputDir.resolve("debug-static.png").toString(), capture.frames().get(0), IconRenderer.CAPTURE_SIZE);
 					SpareTheSympathy.LOGGER.info("[dump] static debug: opaque={} firstPixels={}", opaqueCount(capture.frames().get(0)), firstPixels(capture.frames().get(0)));
@@ -179,10 +212,16 @@ public final class DumpRunner {
 			SpareTheSympathy.LOGGER.info("Rendered {} icons ({} animated), {} player heads pending retry", pending.rendered.size(), animatedCount, heads.size());
 			writeSpriteDiagnostics(pending.outputDir, pending.items);
 
-			if (heads.isEmpty()) {
+			Set<String> retryKeys = new HashSet<>(heads.stream().map(MonumentaItemDefinition::key).toList());
+			for (RenderedItem item : pending.rendered) {
+				if (item.retry()) {
+					retryKeys.add(item.key());
+				}
+			}
+			if (retryKeys.isEmpty()) {
 				writeOutputs(pending, pending.feedback);
 			} else {
-				scheduleHeadRetry(pending, heads);
+				scheduleRetry(pending, retryKeys);
 			}
 		} catch (Throwable throwable) {
 			pending.feedback.accept(Component.literal("Dump failed: " + throwable));
@@ -190,37 +229,71 @@ public final class DumpRunner {
 		}
 	}
 
-	private static void scheduleHeadRetry(PendingDump pending, List<MonumentaItemDefinition> heads) {
-		pending.feedback.accept(Component.literal("  waiting 3s for head skins to load, then re-rendering " + heads.size() + " heads..."));
+	private static void scheduleRetry(PendingDump pending, Set<String> retryKeys) {
+		pending.feedback.accept(Component.literal("  waiting 3s for head skins and CIT models to settle, then re-rendering " + retryKeys.size() + " items..."));
 		FETCH_EXECUTOR.submit(() -> {
 			try {
 				Thread.sleep(HEAD_RETRY_DELAY_MILLIS);
 			} catch (InterruptedException exception) {
 				Thread.currentThread().interrupt();
 			}
-			Minecraft.getInstance().execute(() -> RETRY_PENDING = new PendingRetry(pending, heads));
+			Minecraft.getInstance().execute(() -> RETRY_PENDING = new PendingRetry(pending, retryKeys));
 		});
 	}
 
 	private static void retryHeadsNow(PendingRetry retry) {
 		try {
 			IconRenderer iconRenderer = new IconRenderer();
+			int retried = 0;
 			for (int index = 0; index < retry.dump.rendered.size(); index++) {
 				RenderedItem item = retry.dump.rendered.get(index);
-				boolean isHead = retry.heads.stream().anyMatch(head -> head.key().equals(item.key()));
-				if (isHead) {
-					MonumentaItemDefinition definition = retry.heads.stream().filter(head -> head.key().equals(item.key())).findFirst().orElseThrow();
-					ItemStack stack = cleanStack(MonumentaStackFactory.createStack(definition));
-					AnimatedIconRenderer.Capture capture = AnimatedIconRenderer.capture(stack, iconRenderer);
-					retry.dump.rendered.set(index, new RenderedItem(item.key(), capture.frames(), capture.dwells(), capture.texturePath(), capture.animated()));
+				if (!retry.retryKeys.contains(item.key())) {
+					continue;
 				}
+				MonumentaItemDefinition definition = retry.dump.items.get(index);
+				ItemStack stack = cleanStack(MonumentaStackFactory.createStack(definition));
+				AnimatedIconRenderer.Capture capture;
+				var model = Minecraft.getInstance().getItemRenderer().getModel(stack, null, null, 0);
+				if (FrameItemModel.containsMissingno(model)) {
+					model = FrameItemModel.withoutMissingno(model);
+				}
+				capture = AnimatedIconRenderer.capture(stack, iconRenderer, model);
+				retry.dump.rendered.set(index, new RenderedItem(item.key(), capture.frames(), capture.dwells(), capture.texturePath(), capture.animated(), false));
+				retried++;
 			}
-			SpareTheSympathy.LOGGER.info("Retried {} head icons", retry.heads.size());
+			SpareTheSympathy.LOGGER.info("Retried {} head/settle icons", retried);
 		} catch (Throwable throwable) {
 			SpareTheSympathy.LOGGER.error("Head icon retry failed", throwable);
 		} finally {
 			writeOutputs(retry.dump, retry.dump.feedback);
 		}
+	}
+
+	// An item's animation must keep the same geometry; wildly different
+	// opaque bounds between frames mean the CIT model baked mid-capture
+	// (frame 0 shows the flat fallback, later frames the real model).
+	private static boolean inconsistentFrames(List<int[]> frames) {
+		if (frames == null || frames.size() < 2) {
+			return false;
+		}
+		int[] first = opaqueBounds(frames.get(0));
+		int[] last = opaqueBounds(frames.get(frames.size() - 1));
+		return Math.abs(first[0] - last[0]) >= 8 || Math.abs(first[1] - last[1]) >= 8;
+	}
+
+	private static int[] opaqueBounds(int[] pixels) {
+		int minX = 64, minY = 64, maxX = -1, maxY = -1;
+		for (int y = 0; y < 64; y++) {
+			for (int x = 0; x < 64; x++) {
+				if ((pixels[y * 64 + x] >>> 24) > 0) {
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
+					if (y < minY) minY = y;
+					if (y > maxY) maxY = y;
+				}
+			}
+		}
+		return maxX < 0 ? new int[]{0, 0} : new int[]{maxX - minX + 1, maxY - minY + 1};
 	}
 
 	private static ItemStack cleanStack(ItemStack stack) {
