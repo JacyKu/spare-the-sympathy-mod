@@ -36,9 +36,9 @@ class TextureSheetsWriterTest {
 		int blue = 0xFF0000FF;
 
 		DumpRunner.RenderedItem animated = new DumpRunner.RenderedItem(
-			"Outsider's Gaze", List.of(captureFrame(red), captureFrame(green)), List.of(3, 3), "minecraft/optifine/cit/outsiders_gaze", true);
+			"Outsider's Gaze", List.of(captureFrame(red), captureFrame(green)), List.of(3, 3), "minecraft/optifine/cit/outsiders_gaze", true, false);
 		DumpRunner.RenderedItem staticItem = new DumpRunner.RenderedItem(
-			"Cinnamon Sapling", List.of(captureFrame(blue)), List.of(1), null, false);
+			"Cinnamon Sapling", List.of(captureFrame(blue)), List.of(1), null, false, false);
 
 		TextureSheetsWriter.write(tempDir, List.of(animated, staticItem));
 

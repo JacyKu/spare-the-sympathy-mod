@@ -21,6 +21,7 @@ public record MonumentaItemDefinition(
 	String className,
 	String releaseStatus,
 	String masterwork,
+	int power,
 	List<String> lore,
 	List<String> mmLore,
 	Map<String, MonumentaStat> stats
@@ -36,6 +37,7 @@ public record MonumentaItemDefinition(
 		String className = readString(json, "class_name");
 		String releaseStatus = readString(json, "release_status");
 		String masterwork = readString(json, "masterwork");
+		int power = readInt(json, "power");
 		List<String> lore = readLore(json, "lore");
 		List<String> mmLore = readStringList(json, "mmlore");
 		Map<String, MonumentaStat> stats = readStats(json.get("stats"));
@@ -52,10 +54,23 @@ public record MonumentaItemDefinition(
 			className,
 			releaseStatus,
 			masterwork,
+			power,
 			List.copyOf(lore),
 			List.copyOf(mmLore),
 			Map.copyOf(stats)
 		);
+	}
+
+	private static int readInt(JsonObject json, String key) {
+		JsonElement element = json.get(key);
+		if (element == null || element.isJsonNull() || !element.isJsonPrimitive()) {
+			return 0;
+		}
+		try {
+			return element.getAsInt();
+		} catch (NumberFormatException e) {
+			return 0;
+		}
 	}
 
 	private static String readString(JsonObject json, String key) {

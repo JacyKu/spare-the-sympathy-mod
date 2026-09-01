@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "sts.mod.client.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"MouseHandlerMixin",
+		"ContainerScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
