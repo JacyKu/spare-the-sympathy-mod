@@ -3,6 +3,7 @@
 	"package": "sts.mod.client.mixin",
 	"compatibilityLevel": "JAVA_17",
 	"client": [
+		"AbstractContainerScreenMixin",
 		"ArmouryScreenMixin",
 		"ContainerScreenMixin"
 	],

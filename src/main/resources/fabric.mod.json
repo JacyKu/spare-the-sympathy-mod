@@ -18,6 +18,9 @@
 		],
 		"client": [
 			"sts.mod.client.SpareTheSympathyClient"
+		],
+		"modmenu": [
+			"sts.mod.client.StsModMenuIntegration"
 		]
 	},
 	"depends": {
@@ -25,6 +28,10 @@
 		"minecraft": "~1.20.4",
 		"java": ">=17",
 		"fabric-api": "*",
-		"citresewn": ">=1.1.4 <=1.1.5"
+		"citresewn": ">=1.1.4 <=1.1.5",
+		"cloth-config": ">=13.0.138"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }

@@ -25,18 +25,29 @@ import sts.mod.client.armoury.ArmouryLoadoutReader;
  * The buttons are created whenever a Mechanical Armory screen initialises
  * (vanilla re-runs init on resize too, so they reposition themselves) and
  * their active state is refreshed on every rendered frame - the export/save
- * buttons only enable once a loadout is actually on screen.
+ * buttons only enable once a loadout is actually on screen. Old button sets
+ * are removed from the screen before a new set is added, so re-initialising
+ * the screen (e.g. on resize) never leaves sticky duplicates behind.
  */
 @Mixin(Screen.class)
 abstract class ArmouryScreenMixin {
 	@Shadow
 	protected abstract <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T child);
 
+	@Shadow
+	protected abstract void removeWidget(GuiEventListener child);
+
 	@Unique
 	private List<Button> sparethesympathy$armouryButtons = null;
 
 	@Inject(method = "init(Lnet/minecraft/client/Minecraft;II)V", at = @At("TAIL"))
 	private void sparethesympathy$createArmouryButtons(Minecraft client, int width, int height, CallbackInfo ci) {
+		if (this.sparethesympathy$armouryButtons != null) {
+			for (Button button : this.sparethesympathy$armouryButtons) {
+				this.removeWidget(button);
+			}
+			this.sparethesympathy$armouryButtons = null;
+		}
 		if (client.screen == null || !ArmouryLoadoutReader.isArmouryScreen(client.screen)) {
 			return;
 		}

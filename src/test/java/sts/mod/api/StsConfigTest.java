@@ -7,22 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class StsConfigTest {
 	@Test
 	void defaultsToLocalhost3001() {
-		assertEquals("http://localhost:3001", StsConfig.parse("{}"));
-		assertEquals("http://localhost:3001", StsConfig.parse("{\"siteUrl\": \"\"}"));
+		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl(null));
+		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl(""));
+		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl("   "));
 	}
 
 	@Test
-	void readsConfiguredUrl() {
-		assertEquals("https://sts.deepa.cat", StsConfig.parse("{\"siteUrl\": \"https://sts.deepa.cat\"}"));
+	void keepsConfiguredUrl() {
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("https://sts.deepa.cat"));
+		assertEquals("http://localhost:8080", StsConfig.normalizeSiteUrl("http://localhost:8080"));
 	}
 
 	@Test
 	void stripsTrailingSlashes() {
-		assertEquals("http://localhost:3001", StsConfig.parse("{\"siteUrl\": \"http://localhost:3001/\"}"));
-	}
-
-	@Test
-	void ignoresUnknownKeys() {
-		assertEquals("http://localhost:3001", StsConfig.parse("{\"dumpAllScreens\": false}"));
+		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl("http://localhost:3001/"));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("https://sts.deepa.cat///"));
 	}
 }

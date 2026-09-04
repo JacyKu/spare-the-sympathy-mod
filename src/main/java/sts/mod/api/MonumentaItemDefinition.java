@@ -26,6 +26,39 @@ public record MonumentaItemDefinition(
 	List<String> mmLore,
 	Map<String, MonumentaStat> stats
 ) {
+	public static Map<String, MonumentaItemDefinition> applyExaltedRenames(Map<String, MonumentaItemDefinition> byKey) {
+		Map<String, MonumentaItemDefinition> result = new LinkedHashMap<>(byKey.size());
+		for (Map.Entry<String, MonumentaItemDefinition> entry : byKey.entrySet()) {
+			String key = entry.getKey();
+			MonumentaItemDefinition def = entry.getValue();
+			String masterwork = def.masterwork();
+			if (masterwork != null && !masterwork.isEmpty()
+				&& !def.name().equals(key)
+				&& byKey.containsKey(def.name())) {
+				result.put(key, new MonumentaItemDefinition(
+					def.key(),
+					"EX " + def.name(),
+					def.baseItemName(),
+					def.rawNbt(),
+					def.type(),
+					def.tier(),
+					def.region(),
+					def.location(),
+					def.className(),
+					def.releaseStatus(),
+					def.masterwork(),
+					def.power(),
+					def.lore(),
+					def.mmLore(),
+					def.stats()
+				));
+			} else {
+				result.put(key, def);
+			}
+		}
+		return result;
+	}
+
 	public static MonumentaItemDefinition fromJson(String key, JsonObject json) {
 		String name = readString(json, "name");
 		String baseItemName = readString(json, "base_item");

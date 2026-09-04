@@ -3,5 +3,9 @@
 		"sts.command.dump.start": "Dumping pack textures...",
 		"sts.command.dump.done": "Dump complete: %s textures (%s animated) into %s",
 		"sts.command.dump.failed": "Dump failed: %s"
-	}
+	},
+	"sts.config.title": "Spare the Sympathy Config",
+	"title.sparethesympathy": "Spare the Sympathy Config",
+	"text.autoconfig.sparethesympathy.option.siteUrl": "Site URL",
+	"text.autoconfig.sparethesympathy.option.siteUrl.@Tooltip": "Base URL of the STS site (no trailing slash). Defaults to the local dev server."
 }

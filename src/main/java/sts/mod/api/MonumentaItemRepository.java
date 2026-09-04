@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -96,18 +97,20 @@ public final class MonumentaItemRepository {
 		}
 
 		JsonObject root = rootElement.getAsJsonObject();
-		List<MonumentaItemDefinition> items = new ArrayList<>(root.size());
+		Map<String, MonumentaItemDefinition> byKey = new LinkedHashMap<>(root.size());
 		for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
 			JsonElement value = entry.getValue();
 			if (!value.isJsonObject()) {
 				continue;
 			}
 			try {
-				items.add(MonumentaItemDefinition.fromJson(entry.getKey(), value.getAsJsonObject()));
+				byKey.put(entry.getKey(), MonumentaItemDefinition.fromJson(entry.getKey(), value.getAsJsonObject()));
 			} catch (Exception exception) {
 				SpareTheSympathy.LOGGER.warn("Skipping Monumenta item '{}' due to parse error", entry.getKey());
 			}
 		}
+		byKey = MonumentaItemDefinition.applyExaltedRenames(byKey);
+		List<MonumentaItemDefinition> items = new ArrayList<>(byKey.values());
 		items.sort(Comparator.comparing(MonumentaItemDefinition::key));
 		return items;
 	}

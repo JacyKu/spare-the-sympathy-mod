@@ -1,77 +1,80 @@
 package sts.mod.api;
 
-import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.serializer.GsonConfigSerializer;
 import net.fabricmc.loader.api.FabricLoader;
 import sts.mod.SpareTheSympathy;
+import sts.mod.config.StsModConfig;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The mod's user-facing config, stored at
- * {@code config/sparethesympathy/config.json}:
- * <pre>
- * { "siteUrl": "http://localhost:3001" }
- * </pre>
- * Defaults to the local development site (port 3001). Point it at the real
- * site ({@code https://sts.deepa.cat}) for production use.
+ * Facade over the Cloth Config autoconfig holder for {@link StsModConfig}.
+ * The config is stored by autoconfig at
+ * {@code config/sparethesympathy.json}. On first run any legacy config at
+ * {@code config/sparethesympathy/config.json} is migrated so users keep their
+ * {@code siteUrl} setting.
  */
 public final class StsConfig {
-	private static final String FILE_NAME = "config.json";
 	private static final String DEFAULT_SITE_URL = "http://localhost:3001";
-
-	private static volatile String siteUrl = DEFAULT_SITE_URL;
 
 	private StsConfig() {
 	}
 
 	/** The configured site origin (no trailing slash). */
 	public static String siteUrl() {
-		return siteUrl;
+		return normalizeSiteUrl(config().siteUrl);
 	}
 
-	/** Loads (or creates) the config file. Call once at startup. */
+	/**
+	 * One-time legacy migration from {@code config/sparethesympathy/config.json}.
+	 * Must be called after {@code AutoConfig.register(StsModConfig.class, ...)}.
+	 * Never throws; problems are logged as warnings.
+	 */
 	public static void load() {
-		Path configDir;
 		try {
-			configDir = FabricLoader.getInstance().getConfigDir().resolve("sparethesympathy");
-		} catch (RuntimeException e) {
-			SpareTheSympathy.LOGGER.warn("No config dir available, keeping default site URL", e);
-			return;
-		}
-		Path configFile = configDir.resolve(FILE_NAME);
-		if (Files.exists(configFile)) {
-			try {
-				siteUrl = parse(Files.readString(configFile, StandardCharsets.UTF_8));
-			} catch (IOException | RuntimeException e) {
-				SpareTheSympathy.LOGGER.warn("Could not read {}, keeping defaults", configFile, e);
+			Path configFile = FabricLoader.getInstance().getConfigDir()
+				.resolve("sparethesympathy")
+				.resolve("config.json");
+			if (!Files.exists(configFile)) {
+				return;
 			}
-		} else {
-			try {
-				Files.createDirectories(configDir);
-				Files.writeString(configFile,
-					"{\n\t\"siteUrl\": \"" + DEFAULT_SITE_URL + "\"\n}\n",
-					StandardCharsets.UTF_8);
-				SpareTheSympathy.LOGGER.info("Wrote default config to {}", configFile);
-			} catch (IOException e) {
-				SpareTheSympathy.LOGGER.warn("Could not write default config to {}", configFile, e);
-			}
+			String url = readSiteUrl(Files.readString(configFile, StandardCharsets.UTF_8));
+			config().siteUrl = normalizeSiteUrl(url);
+			AutoConfig.getConfigHolder(StsModConfig.class).save();
+			SpareTheSympathy.LOGGER.info("Migrated legacy config from {} into autoconfig", configFile);
+		} catch (Exception e) {
+			SpareTheSympathy.LOGGER.warn("Could not migrate legacy config, keeping defaults", e);
 		}
 	}
 
-	// Extracted for unit testing (FabricLoader is not available there).
-	static String parse(String raw) {
-		JsonObject json = JsonParser.parseString(raw).getAsJsonObject();
-		String url = json.has("siteUrl") && json.get("siteUrl").isJsonPrimitive()
-			? json.get("siteUrl").getAsString()
-			: DEFAULT_SITE_URL;
+	/** Pure helper: null/blank -> default, otherwise trailing slashes stripped. */
+	public static String normalizeSiteUrl(String url) {
 		if (url == null || url.isBlank()) {
-			url = DEFAULT_SITE_URL;
+			return DEFAULT_SITE_URL;
 		}
 		return url.replaceAll("/+$", "");
+	}
+
+	private static StsModConfig config() {
+		return AutoConfig.getConfigHolder(StsModConfig.class).getConfig();
+	}
+
+	private static String readSiteUrl(String raw) {
+		try {
+			JsonObject json = JsonParser.parseString(raw).getAsJsonObject();
+			JsonElement element = json.get("siteUrl");
+			if (element == null || !element.isJsonPrimitive()) {
+				return null;
+			}
+			return element.getAsString();
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 }

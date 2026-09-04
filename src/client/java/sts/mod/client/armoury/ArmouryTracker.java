@@ -75,6 +75,10 @@ public final class ArmouryTracker {
 			if (parsed != null) {
 				loadout = parsed;
 			}
+		} else {
+			// Overview page: no loadout is on display, so the action buttons
+			// must not be able to target a loadout.
+			loadout = null;
 		}
 	}
 
@@ -276,8 +280,10 @@ public final class ArmouryTracker {
 				StsApiClient.LinkRequest request = StsApiClient.requestLink(uuid);
 				openBrowser(request.url());
 				feedback = "Open the link in your browser to link your Discord account: " + request.url();
+				showMessage("Open this link in your browser to link your Discord account: " + request.url());
 			} catch (Exception e) {
 				feedback = "Could not start the linking flow (" + e.getMessage() + ").";
+				showMessage("Could not start the linking flow: " + e.getMessage());
 			} finally {
 				busy = false;
 			}
