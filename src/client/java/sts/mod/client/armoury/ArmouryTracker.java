@@ -2,7 +2,9 @@ package sts.mod.client.armoury;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import sts.mod.SpareTheSympathy;
 import sts.mod.api.BuildTokenEncoder;
 import sts.mod.api.MonumentaItemDefinition;
@@ -185,6 +187,18 @@ public final class ArmouryTracker {
 		}
 	}
 
+	/** Prints a message in chat with the URL as a clickable hyperlink. */
+	public static void showLinkMessage(String url, String prefix) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) {
+			return;
+		}
+		Component link = Component.literal(url).withStyle(style -> style
+			.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+			.withUnderlined(true));
+		mc.player.displayClientMessage(Component.literal("[STS] " + prefix).append(link), false);
+	}
+
 	// Export goes through the API like every save: the token is stored (no
 	// account attached) and the player gets a short link back - the raw token
 	// is never handed out directly. Falls back to the raw builder link only
@@ -239,7 +253,7 @@ public final class ArmouryTracker {
 					feedback = "Build saved to your profile and link copied to clipboard.";
 					linked = true;
 				} else {
-					feedback = "Profile not linked - build saved without an account and the link copied. Run /stsmod link to save builds to your profile.";
+					feedback = "Profile not linked - build saved without an account and the link copied. Run /sts link to save builds to your profile.";
 				}
 			} catch (Exception e) {
 				feedback = "Could not save the build (" + e.getMessage() + ").";
@@ -280,7 +294,7 @@ public final class ArmouryTracker {
 				StsApiClient.LinkRequest request = StsApiClient.requestLink(uuid);
 				openBrowser(request.url());
 				feedback = "Open the link in your browser to link your Discord account: " + request.url();
-				showMessage("Open this link in your browser to link your Discord account: " + request.url());
+				showLinkMessage(request.url(), "Open this link in your browser to link your Discord account: ");
 			} catch (Exception e) {
 				feedback = "Could not start the linking flow (" + e.getMessage() + ").";
 				showMessage("Could not start the linking flow: " + e.getMessage());

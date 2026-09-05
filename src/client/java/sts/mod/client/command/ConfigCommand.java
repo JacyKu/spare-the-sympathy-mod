@@ -20,7 +20,7 @@ public final class ConfigCommand {
 
 	private static void registerCommand(CommandDispatcher<FabricClientCommandSource> dispatcher, CommandBuildContext ignored) {
 		dispatcher.register(
-			ClientCommandManager.literal("stsmod")
+			ClientCommandManager.literal("sts")
 				.then(ClientCommandManager.literal("config")
 					.executes(context -> {
 						Minecraft mc = Minecraft.getInstance();

@@ -22,7 +22,7 @@ public final class DumpCommand {
 
 	private static void registerCommand(CommandDispatcher<FabricClientCommandSource> dispatcher, CommandBuildContext ignored) {
 		dispatcher.register(
-			ClientCommandManager.literal("stsmod")
+			ClientCommandManager.literal("sts")
 				.then(ClientCommandManager.literal("dump")
 					.executes(context -> runDump(context.getSource(), null))
 					.then(ClientCommandManager.argument("dir", StringArgumentType.greedyString())

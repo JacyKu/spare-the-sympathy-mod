@@ -35,7 +35,7 @@ The built jar is at `build/libs/sparethesympathy-0.1.0.jar`.
 In-game, run:
 
 ```
-/stsmod dump
+/sts dump
 ```
 
 The command fetches all items from the Monumenta API, renders each with its in-game textures, and writes a spritesheet and its metadata JSON. The output paths are printed in chat when the dump finishes.

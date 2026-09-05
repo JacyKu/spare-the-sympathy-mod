@@ -18,7 +18,7 @@ public final class LinkCommand {
 
 	private static void registerCommand(CommandDispatcher<FabricClientCommandSource> dispatcher, CommandBuildContext ignored) {
 		dispatcher.register(
-			ClientCommandManager.literal("stsmod")
+			ClientCommandManager.literal("sts")
 				.then(ClientCommandManager.literal("link")
 					.executes(context -> {
 						context.getSource().sendFeedback(Component.literal("Requesting a link for your Minecraft profile..."));
