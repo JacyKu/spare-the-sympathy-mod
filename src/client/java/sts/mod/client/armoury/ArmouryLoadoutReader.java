@@ -209,6 +209,22 @@ public final class ArmouryLoadoutReader {
 				parseSkills(classItem, className, specName, classes, skills, specSkills, enhancements);
 			}
 		}
+		if (className == null) {
+			for (int slot = 45; slot < menu.slots.size() && className == null; slot++) {
+				ItemStack candidate = menu.slots.get(slot).getItem();
+				if (candidate.isEmpty()) {
+					continue;
+				}
+				Matcher candidateMatcher = CLASS_NAME.matcher(candidate.getHoverName().getString());
+				if (candidateMatcher.matches()) {
+					className = candidateMatcher.group(1).trim();
+					specName = candidateMatcher.group(2).trim();
+					if (!classes.isEmpty()) {
+						parseSkills(candidate, className, specName, classes, skills, specSkills, enhancements);
+					}
+				}
+			}
+		}
 
 		return new Loadout(name, itemKeys, charmKeys, className, specName, skills, specSkills, enhancements, delveInfusions);
 	}

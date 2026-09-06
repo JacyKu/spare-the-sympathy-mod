@@ -72,7 +72,8 @@ public final class ArmouryTracker {
 
 		// The loadout is only parsed on the loadout view; on the overview page
 		// the rows hold loadout icons which would parse as bogus equipment.
-		if (ArmouryLoadoutReader.isLoadoutView(screen)) {
+		boolean loadoutView = ArmouryLoadoutReader.isLoadoutView(screen);
+		if (loadoutView) {
 			ArmouryLoadoutReader.Loadout parsed = ArmouryLoadoutReader.read(screen, items(), classes());
 			if (parsed != null) {
 				loadout = parsed;
