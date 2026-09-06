@@ -256,7 +256,13 @@ public final class ArmouryTracker {
 					feedback = "Profile not linked - build saved without an account and the link copied. Run /sts link to save builds to your profile.";
 				}
 			} catch (Exception e) {
-				feedback = "Could not save the build (" + e.getMessage() + ").";
+				String detail = e.getMessage() == null ? "" : e.getMessage();
+				if (detail.contains("duplicate")) {
+					feedback = "A build with this loadout's name already exists on your profile - rename the loadout and try again.";
+					showMessage("A build with this loadout's name already exists on your profile - rename the loadout and try again.");
+				} else {
+					feedback = "Could not save the build (" + detail + ").";
+				}
 			} finally {
 				busy = false;
 			}
