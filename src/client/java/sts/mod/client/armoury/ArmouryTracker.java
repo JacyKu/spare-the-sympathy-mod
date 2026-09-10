@@ -246,12 +246,19 @@ public final class ArmouryTracker {
 		String uuid = mc.getUser().getProfileId().toString();
 		busy = true;
 		feedback = null;
+		com.google.gson.JsonArray unknownItems = new com.google.gson.JsonArray();
+		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
+			unknownItems.add(payload);
+		}
 		EXECUTOR.execute(() -> {
 			try {
-				StsApiClient.SaveResult result = StsApiClient.saveBuild(uuid, token, name, infusions);
+				StsApiClient.SaveResult result = StsApiClient.saveBuild(uuid, token, name, infusions, unknownItems);
 				copyToClipboard(StsApiClient.siteUrl() + result.url());
+				String created = result.createdItems().isEmpty()
+					? ""
+					: " Created " + result.createdItems().size() + " custom item(s) for equipment the site didn't know.";
 				if (result.linked() && result.saved()) {
-					feedback = "Build saved to your profile and link copied to clipboard.";
+					feedback = "Build saved to your profile and link copied to clipboard." + created;
 					linked = true;
 				} else {
 					feedback = "Profile not linked - build saved without an account and the link copied. Run /sts link to save builds to your profile.";

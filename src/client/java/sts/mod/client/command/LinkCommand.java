@@ -25,6 +25,11 @@ public final class LinkCommand {
 						ArmouryTracker.linkAccount();
 						return 1;
 					}))
+				.then(ClientCommandManager.literal("upload")
+					.executes(context -> {
+						UploadCommand.uploadHeldItem();
+						return 1;
+					}))
 		);
 	}
 }

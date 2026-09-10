@@ -1,5 +1,6 @@
 package sts.mod.client.armoury;
 
+import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
@@ -9,6 +10,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import sts.mod.api.BuildTokenEncoder;
+import sts.mod.api.ItemUploader;
 import sts.mod.api.MonumentaItemDefinition;
 import sts.mod.api.StsApiClient;
 
@@ -60,7 +62,8 @@ public final class ArmouryLoadoutReader {
 		List<BuildTokenEncoder.Skill> skills,
 		List<BuildTokenEncoder.Skill> specSkills,
 		List<String> enhancements,
-		java.util.Map<String, String> delveInfusions
+		java.util.Map<String, String> delveInfusions,
+		List<JsonObject> unknownItemPayloads
 	) {
 	}
 
@@ -129,6 +132,10 @@ public final class ArmouryLoadoutReader {
 
 		String[] itemKeys = new String[6];
 		int[] resolvedSlots = new int[6];
+		// Equipment the Monumenta dictionary doesn't know about (unreleased /
+		// event items): uploaded alongside the build so the site can create
+		// custom items for them.
+		List<JsonObject> unknownItemPayloads = new ArrayList<>();
 		for (int i = 0; i < 6; i++) {
 			int slot = EQUIPMENT_SLOTS[i];
 			if (i == 0 && menu.slots.get(slot).getItem().isEmpty()) {
@@ -144,6 +151,16 @@ public final class ArmouryLoadoutReader {
 			resolvedSlots[i] = slot;
 			ItemStack stack = menu.slots.get(slot).getItem();
 			itemKeys[i] = matchItemKey(stack, items);
+			if ("None".equals(itemKeys[i]) && !stack.isEmpty()) {
+				JsonObject payload = ItemUploader.buildPayload(stack);
+				String displayName = payload.get("name").getAsString();
+				if (!displayName.isEmpty()) {
+					// The token hashes the item key; the display name is the
+					// key the uploaded custom item gets on the site.
+					itemKeys[i] = displayName;
+					unknownItemPayloads.add(payload);
+				}
+			}
 		}
 
 		// Delve infusion preferences: each equipment icon's lore carries
@@ -186,6 +203,15 @@ public final class ArmouryLoadoutReader {
 			String key = matchCharmKey(stack, items);
 			if (key != null) {
 				charmKeys.add(key);
+			} else {
+				// Unknown charm: upload it so it exists as a custom charm on
+				// the site (the build token can't reference it, but the
+				// builder's charm picker will list it).
+				JsonObject payload = ItemUploader.buildPayload(stack);
+				payload.addProperty("type", "Charm");
+				if (!payload.get("name").getAsString().isEmpty()) {
+					unknownItemPayloads.add(payload);
+				}
 			}
 		}
 
@@ -226,7 +252,7 @@ public final class ArmouryLoadoutReader {
 			}
 		}
 
-		return new Loadout(name, itemKeys, charmKeys, className, specName, skills, specSkills, enhancements, delveInfusions);
+		return new Loadout(name, itemKeys, charmKeys, className, specName, skills, specSkills, enhancements, delveInfusions, unknownItemPayloads);
 	}
 
 	// Matches an armoury icon back to a dictionary entry by vanilla base item +

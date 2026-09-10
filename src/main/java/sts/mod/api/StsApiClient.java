@@ -86,7 +86,7 @@ public final class StsApiClient {
 	}
 
 	/** Result of saving a build from the mod. */
-	public record SaveResult(String url, boolean linked, boolean saved) {
+	public record SaveResult(String url, boolean linked, boolean saved, List<String> createdItems) {
 	}
 
 	/**
@@ -96,6 +96,15 @@ public final class StsApiClient {
 	 */
 	public static SaveResult saveBuild(String uuid, String token, String name,
 		java.util.Map<String, String> infusions) throws IOException {
+		return saveBuild(uuid, token, name, infusions, null);
+	}
+
+	/**
+	 * Saves a build and, for linked accounts, uploads equipment the site
+	 * doesn't know about (`items`) so it can be created as custom items.
+	 */
+	public static SaveResult saveBuild(String uuid, String token, String name,
+		java.util.Map<String, String> infusions, JsonArray items) throws IOException {
 		JsonObject body = new JsonObject();
 		if (uuid != null && !uuid.isEmpty()) {
 			body.addProperty("uuid", uuid);
@@ -109,9 +118,50 @@ public final class StsApiClient {
 			infusions.forEach(object::addProperty);
 			body.add("infusions", object);
 		}
+		if (items != null && items.size() > 0) {
+			body.add("items", items);
+		}
 		JsonObject json = JsonParser.parseString(post("/api/v1/mod/builds", body)).getAsJsonObject();
 		return new SaveResult(json.get("url").getAsString(), json.get("linked").getAsBoolean(),
-			json.get("saved").getAsBoolean());
+			json.get("saved").getAsBoolean(), readStringArray(json, "createdItems"));
+	}
+
+	// ---------- item uploads ----------
+
+	/** Result of uploading items from the game. */
+	public record UploadResult(List<String> created, List<String> skipped) {
+	}
+
+	/**
+	 * Uploads in-game items as custom items on the linked account. Throws with
+	 * the server's message when the UUID isn't linked ("not linked").
+	 */
+	public static UploadResult uploadItems(String uuid, JsonArray items) throws IOException {
+		JsonObject body = new JsonObject();
+		body.addProperty("uuid", uuid);
+		body.add("items", items);
+		JsonObject json = JsonParser.parseString(post("/api/v1/mod/custom-items", body)).getAsJsonObject();
+		List<String> skipped = new ArrayList<>();
+		if (json.has("skipped") && json.get("skipped").isJsonArray()) {
+			for (JsonElement element : json.getAsJsonArray("skipped")) {
+				if (element.isJsonObject() && element.getAsJsonObject().has("name")) {
+					skipped.add(element.getAsJsonObject().get("name").getAsString());
+				}
+			}
+		}
+		return new UploadResult(readStringArray(json, "created"), skipped);
+	}
+
+	private static List<String> readStringArray(JsonObject json, String key) {
+		List<String> values = new ArrayList<>();
+		if (json.has(key) && json.get(key).isJsonArray()) {
+			for (JsonElement element : json.getAsJsonArray(key)) {
+				if (element.isJsonPrimitive()) {
+					values.add(element.getAsString());
+				}
+			}
+		}
+		return values;
 	}
 
 	// ---------- skills data ----------
