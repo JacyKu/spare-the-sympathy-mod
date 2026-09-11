@@ -12,6 +12,7 @@ import sts.mod.client.command.ConfigCommand;
 import sts.mod.client.command.DumpCommand;
 import sts.mod.client.command.LinkCommand;
 import sts.mod.client.dump.DumpRunner;
+import sts.mod.client.view.ViewedPlayersTracker;
 import sts.mod.config.StsModConfig;
 
 public class SpareTheSympathyClient implements ClientModInitializer {
@@ -26,5 +27,7 @@ public class SpareTheSympathyClient implements ClientModInitializer {
 		// The armoury buttons render via ContainerScreenMixin at the RETURN of
 		// ContainerScreen.render, i.e. after slot contents and item tooltips.
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ArmouryTracker.onClientTick());
+		// Caches other players' builds while their /ps, /pa or /vc GUIs are open.
+		ClientTickEvents.END_CLIENT_TICK.register(client -> ViewedPlayersTracker.onClientTick());
 	}
 }

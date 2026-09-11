@@ -44,7 +44,12 @@ public final class ArmouryTracker {
 	private static volatile boolean itemsReady;
 	private static volatile boolean classesReady;
 
-	private static volatile boolean requestedLinkStatus;
+	// Link status is re-checked periodically while the armoury is open, so the
+	// Link Account button flips to Linked after the browser flow completes
+	// without needing to close and reopen the screen.
+	private static final long LINK_CHECK_INTERVAL_MS = 5000;
+	private static volatile boolean linkCheckInFlight;
+	private static volatile long lastLinkCheck;
 
 	private ArmouryTracker() {
 	}
@@ -64,7 +69,7 @@ public final class ArmouryTracker {
 
 		if (!armouryOpen) {
 			armouryOpen = true;
-			requestedLinkStatus = false;
+			lastLinkCheck = 0;
 			feedback = null;
 		}
 		ensureItemsAndClasses();
@@ -91,11 +96,12 @@ public final class ArmouryTracker {
 			armouryOpen = false;
 			loadout = null;
 			linked = null;
-			requestedLinkStatus = false;
+			lastLinkCheck = 0;
 		}
 	}
 
-	private static void ensureItemsAndClasses() {
+	/** Starts loading the item dictionary + class catalog if not loaded yet. */
+	public static void ensureItemsAndClasses() {
 		if (items == null) {
 			itemsReady = false;
 			EXECUTOR.execute(() -> {
@@ -129,16 +135,28 @@ public final class ArmouryTracker {
 	}
 
 	private static void ensureLinkStatus(Minecraft mc) {
-		if (requestedLinkStatus || mc.getUser() == null || mc.getUser().getProfileId() == null) {
+		if (mc.getUser() == null || mc.getUser().getProfileId() == null) {
 			return;
 		}
-		requestedLinkStatus = true;
+		long now = System.currentTimeMillis();
+		if (linkCheckInFlight || now - lastLinkCheck < LINK_CHECK_INTERVAL_MS) {
+			return;
+		}
+		linkCheckInFlight = true;
+		lastLinkCheck = now;
 		String uuid = mc.getUser().getProfileId().toString();
 		EXECUTOR.execute(() -> {
 			try {
-				linked = StsApiClient.isLinked(uuid);
+				boolean nowLinked = StsApiClient.isLinked(uuid);
+				boolean wasLinked = Boolean.TRUE.equals(linked);
+				linked = nowLinked;
+				if (nowLinked && !wasLinked) {
+					feedback = "Account linked - builds now save to your profile.";
+				}
 			} catch (Exception e) {
 				linked = null;
+			} finally {
+				linkCheckInFlight = false;
 			}
 		});
 	}
@@ -229,7 +247,6 @@ public final class ArmouryTracker {
 	}
 
 	public static void saveBuild() {
-		Minecraft mc = Minecraft.getInstance();
 		ArmouryLoadoutReader.Loadout current = loadout;
 		if (current == null) {
 			showMessage("No loadout to save.");
@@ -238,18 +255,47 @@ public final class ArmouryTracker {
 		String token = encode(current);
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>(current.delveInfusions());
 		String name = buildName(current);
+		com.google.gson.JsonArray unknownItems = new com.google.gson.JsonArray();
+		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
+			unknownItems.add(payload);
+		}
+		saveToken(name, token, infusions, unknownItems, false);
+	}
+
+	/**
+	 * Saves a build token the way the armoury buttons do: to the player's
+	 * profile when linked, anonymously otherwise, always copying the short
+	 * link. Shared with /sts export of cached viewed players.
+	 */
+	public static void saveToken(
+		String name,
+		String token,
+		java.util.Map<String, String> infusions,
+		com.google.gson.JsonArray unknownItems
+	) {
+		saveToken(name, token, infusions, unknownItems, false);
+	}
+
+	/**
+	 * @param notifyChat also post the result to chat - used by /sts export,
+	 *                   whose feedback overlay isn't on screen
+	 */
+	public static void saveToken(
+		String name,
+		String token,
+		java.util.Map<String, String> infusions,
+		com.google.gson.JsonArray unknownItems,
+		boolean notifyChat
+	) {
+		Minecraft mc = Minecraft.getInstance();
 		if (mc.getUser() == null || mc.getUser().getProfileId() == null) {
 			// No Minecraft profile (offline mode): save anonymously.
-			saveAnonymous(token, name, infusions);
+			saveAnonymous(token, name, infusions, notifyChat);
 			return;
 		}
 		String uuid = mc.getUser().getProfileId().toString();
 		busy = true;
 		feedback = null;
-		com.google.gson.JsonArray unknownItems = new com.google.gson.JsonArray();
-		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
-			unknownItems.add(payload);
-		}
 		EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result = StsApiClient.saveBuild(uuid, token, name, infusions, unknownItems);
@@ -263,13 +309,19 @@ public final class ArmouryTracker {
 				} else {
 					feedback = "Profile not linked - build saved without an account and the link copied. Run /sts link to save builds to your profile.";
 				}
+				if (notifyChat) {
+					showMessage(feedback);
+				}
 			} catch (Exception e) {
 				String detail = e.getMessage() == null ? "" : e.getMessage();
 				if (detail.contains("duplicate")) {
-					feedback = "A build with this loadout's name already exists on your profile - rename the loadout and try again.";
-					showMessage("A build with this loadout's name already exists on your profile - rename the loadout and try again.");
+					feedback = "A build with this name already exists on your profile - rename the build and try again.";
+					showMessage(feedback);
 				} else {
 					feedback = "Could not save the build (" + detail + ").";
+					if (notifyChat) {
+						showMessage(feedback);
+					}
 				}
 			} finally {
 				busy = false;
@@ -278,6 +330,15 @@ public final class ArmouryTracker {
 	}
 
 	private static void saveAnonymous(String token, String name, java.util.Map<String, String> infusions) {
+		saveAnonymous(token, name, infusions, false);
+	}
+
+	private static void saveAnonymous(
+		String token,
+		String name,
+		java.util.Map<String, String> infusions,
+		boolean notifyChat
+	) {
 		busy = true;
 		feedback = null;
 		EXECUTOR.execute(() -> {
@@ -285,9 +346,15 @@ public final class ArmouryTracker {
 				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, name, infusions);
 				copyToClipboard(StsApiClient.siteUrl() + result.url());
 				feedback = "Build saved and short link copied to clipboard.";
+				if (notifyChat) {
+					showMessage(feedback);
+				}
 			} catch (Exception e) {
 				copyToClipboard(StsApiClient.siteUrl() + "/builder/" + token);
 				feedback = "Site unreachable - raw link copied instead (" + e.getMessage() + ").";
+				if (notifyChat) {
+					showMessage(feedback);
+				}
 			} finally {
 				busy = false;
 			}
@@ -307,6 +374,9 @@ public final class ArmouryTracker {
 			try {
 				StsApiClient.LinkRequest request = StsApiClient.requestLink(uuid);
 				openBrowser(request.url());
+				// Let the periodic check pick the new status up as soon as the
+				// player finishes the browser flow.
+				lastLinkCheck = 0;
 				feedback = "Open the link in your browser to link your Discord account: " + request.url();
 				showLinkMessage(request.url(), "Open this link in your browser to link your Discord account: ");
 			} catch (Exception e) {

@@ -5,6 +5,7 @@
 	"client": [
 		"AbstractContainerScreenMixin",
 		"ArmouryScreenMixin",
+		"ClientPacketListenerMixin",
 		"ContainerScreenMixin"
 	],
 	"injectors": {

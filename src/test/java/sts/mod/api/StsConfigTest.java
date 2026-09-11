@@ -23,4 +23,13 @@ class StsConfigTest {
 		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl("http://localhost:3001/"));
 		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("https://sts.deepa.cat///"));
 	}
+
+	@Test
+	void clampsButtonOffsets() {
+		assertEquals(0, StsConfig.clampOffset(0));
+		assertEquals(400, StsConfig.clampOffset(400));
+		assertEquals(400, StsConfig.clampOffset(9999));
+		assertEquals(-400, StsConfig.clampOffset(-9999));
+		assertEquals(-37, StsConfig.clampOffset(-37));
+	}
 }

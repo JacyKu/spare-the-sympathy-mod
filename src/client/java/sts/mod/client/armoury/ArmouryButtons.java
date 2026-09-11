@@ -1,19 +1,15 @@
 package sts.mod.client.armoury;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import sts.mod.SpareTheSympathy;
+import sts.mod.api.StsConfig;
+import sts.mod.config.ArmouryButton;
+import sts.mod.config.ArmourySide;
 
 /**
  * Real screen buttons for the armoury actions (Export Link / Save to
@@ -23,49 +19,41 @@ import sts.mod.SpareTheSympathy;
  * handles by re-running init) and their labels/activity refresh each render
  * frame, mirroring the dictionary mod's floating screen button pattern.
  * <p>
- * Holding <b>Ctrl</b> while dragging a button moves the whole stack; the
- * drag offset is applied on top of the default anchor and persisted to
- * {@code config/sparethesympathy/armoury-buttons.json}, so it survives
- * screen re-initialisation and game restarts.
+ * Each button anchors to the left or right edge of the Mechanical Armory
+ * window (configurable per button) with its own x/y offset. Holding
+ * <b>Ctrl</b> while dragging a button moves just that button and writes its
+ * new offsets back to the mod's autoconfig, so the config screen (Mod Menu ->
+ * Spare the Sympathy) and the in-game drag edit the same values.
  */
 public final class ArmouryButtons {
 	private static final int BUTTON_WIDTH = 96;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int GAP = 6;
 	private static final int MARGIN = 8;
+	private static final ArmouryButton[] BUTTONS = ArmouryButton.values();
 
-	private static final Path POSITION_FILE = FabricLoader.getInstance()
-		.getConfigDir()
-		.resolve("sparethesympathy")
-		.resolve("armoury-buttons.json");
+	private static final Component EXPORT = Component.translatable("sts.armoury.export");
+	private static final Component SAVE = Component.translatable("sts.armoury.save");
+	private static final Component LINK = Component.translatable("sts.armoury.link");
+	private static final Component LINKED = Component.translatable("sts.armoury.linked");
 
-	private static final Component EXPORT = Component.literal("Export Link");
-	private static final Component SAVE = Component.literal("Save to Profile");
-	private static final Component LINK = Component.literal("Link Account");
-	private static final Component LINKED = Component.literal("Linked");
+	private static final Component EXPORT_TOOLTIP = Component.translatable("sts.armoury.export.tooltip");
+	private static final Component SAVE_TOOLTIP = Component.translatable("sts.armoury.save.tooltip");
+	private static final Component LINK_TOOLTIP = Component.translatable("sts.armoury.link.tooltip");
 
-	private static final Component EXPORT_TOOLTIP = Component.literal(
-		"Copies a shareable STS builder link for the current loadout to your clipboard.");
-	private static final Component SAVE_TOOLTIP = Component.literal(
-		"Saves the current loadout to your STS profile (if linked) and copies its short link.");
-	private static final Component LINK_TOOLTIP = Component.literal(
-		"Links your Minecraft profile to your Discord account so builds save to your profile.");
-
-	// Layout state. anchor* is recomputed from the window on every init,
-	// offset* is the player's Ctrl+drag offset on top of it.
-	private static int anchorX;
+	// Layout state. The anchor* arrays are recomputed from the inventory window
+	// on every init; OFFSET_* is the per-button config position on top of it.
 	private static int anchorY;
-	private static int offsetX;
-	private static int offsetY;
-	private static boolean positionLoaded;
+	private static final int[] ANCHOR_X = new int[BUTTONS.length];
+	private static final int[] OFFSET_X = new int[BUTTONS.length];
+	private static final int[] OFFSET_Y = new int[BUTTONS.length];
 	private static boolean positionDirty;
-	private static long lastPersistTime;
 	private static List<Button> currentButtons;
 
-	// Drag tracking: the buttons follow the cursor exactly by remembering
-	// where the drag started and re-deriving the offset from the absolute
-	// mouse position on every frame (accumulating deltas drifts).
-	private static boolean dragging;
+	// Drag tracking: the dragged button follows the cursor exactly by
+	// remembering where the drag started and re-deriving its offset from the
+	// absolute mouse position on every frame (accumulating deltas drifts).
+	private static int draggingIndex = -1;
 	private static double dragStartMouseX;
 	private static double dragStartMouseY;
 	private static int dragStartOffsetX;
@@ -74,16 +62,39 @@ public final class ArmouryButtons {
 	private ArmouryButtons() {
 	}
 
-	public static List<Button> create(int scaledWidth, int scaledHeight) {
-		loadSavedPosition();
-		anchorX = scaledWidth - BUTTON_WIDTH - MARGIN;
-		anchorY = scaledHeight / 2 - 40;
+	public static List<Button> create(Screen screen, int scaledWidth, int scaledHeight) {
+		// Anchor to the inventory window when possible (the Mechanical Armory
+		// is a container screen); fall back to the whole screen otherwise.
+		int left = 0;
+		int top = 0;
+		int width = scaledWidth;
+		int height = scaledHeight;
+		if (screen instanceof AbstractContainerScreen<?> container) {
+			left = container.leftPos;
+			top = container.topPos;
+			width = container.imageWidth;
+			height = container.imageHeight;
+		}
+		// Anchors are strictly relative to the inventory window (no clamping to
+		// the screen): the buttons then keep the same position next to the
+		// inventory when the window is resized, and the player's offsets stay
+		// meaningful at any size.
+		anchorY = top + (height - stackHeight()) / 2;
 
-		Button export = new DraggableArmouryButton(anchorX + offsetX, anchorY + offsetY,
+		for (int i = 0; i < BUTTONS.length; i++) {
+			ArmouryButton id = BUTTONS[i];
+			ANCHOR_X[i] = StsConfig.armouryButtonSide(id) == ArmourySide.LEFT
+				? left - MARGIN - BUTTON_WIDTH
+				: left + width + MARGIN;
+			OFFSET_X[i] = StsConfig.armouryButtonX(id);
+			OFFSET_Y[i] = StsConfig.armouryButtonY(id);
+		}
+
+		Button export = new DraggableArmouryButton(positionX(0), positionY(0),
 			BUTTON_WIDTH, BUTTON_HEIGHT, EXPORT, (button) -> ArmouryTracker.exportToClipboard());
-		Button save = new DraggableArmouryButton(anchorX + offsetX, anchorY + offsetY + (BUTTON_HEIGHT + GAP),
+		Button save = new DraggableArmouryButton(positionX(1), positionY(1),
 			BUTTON_WIDTH, BUTTON_HEIGHT, SAVE, (button) -> ArmouryTracker.saveBuild());
-		Button link = new DraggableArmouryButton(anchorX + offsetX, anchorY + offsetY + 2 * (BUTTON_HEIGHT + GAP),
+		Button link = new DraggableArmouryButton(positionX(2), positionY(2),
 			BUTTON_WIDTH, BUTTON_HEIGHT, LINK, (button) -> {
 				if (Boolean.TRUE.equals(ArmouryTracker.isLinked())) {
 					ArmouryTracker.openAccountPage();
@@ -127,7 +138,8 @@ public final class ArmouryButtons {
 	 * Handles a Ctrl+drag that starts over one of the armoury buttons. Called
 	 * from a mixin on {@code AbstractContainerScreen.mouseDragged} because the
 	 * container screen swallows every drag event and never forwards it to the
-	 * button widgets. Returns true when the drag was consumed.
+	 * button widgets. Only the button under the cursor moves. Returns true when
+	 * the drag was consumed.
 	 */
 	public static boolean dragIfOverButton(double mouseX, double mouseY, int button) {
 		if (button != 0) {
@@ -140,86 +152,75 @@ public final class ArmouryButtons {
 			return false;
 		}
 		if (!Screen.hasControlDown()) {
-			dragging = false;
+			draggingIndex = -1;
 			return false;
 		}
-		if (!dragging) {
-			if (!isOverButton(mouseX, mouseY)) {
+		if (draggingIndex < 0) {
+			draggingIndex = indexAt(mouseX, mouseY);
+			if (draggingIndex < 0) {
 				return false;
 			}
-			dragging = true;
 			dragStartMouseX = mouseX;
 			dragStartMouseY = mouseY;
-			dragStartOffsetX = offsetX;
-			dragStartOffsetY = offsetY;
+			dragStartOffsetX = OFFSET_X[draggingIndex];
+			dragStartOffsetY = OFFSET_Y[draggingIndex];
 		}
-		offsetX = dragStartOffsetX + (int) Math.round(mouseX - dragStartMouseX);
-		offsetY = dragStartOffsetY + (int) Math.round(mouseY - dragStartMouseY);
-		applyOffset();
+		OFFSET_X[draggingIndex] = dragStartOffsetX + (int) Math.round(mouseX - dragStartMouseX);
+		OFFSET_Y[draggingIndex] = dragStartOffsetY + (int) Math.round(mouseY - dragStartMouseY);
+		applyPosition(draggingIndex);
 		positionDirty = true;
 		return true;
 	}
 
-	/** Persists the final drag position once the mouse button is released. */
+	/** Persists the dragged button's position once the mouse is released. */
 	public static void endDrag() {
-		dragging = false;
+		if (draggingIndex < 0) {
+			return;
+		}
+		int index = draggingIndex;
+		draggingIndex = -1;
 		if (positionDirty) {
 			positionDirty = false;
-			lastPersistTime = Util.getMillis();
-			persist();
+			StsConfig.setArmouryButtonPosition(BUTTONS[index], OFFSET_X[index], OFFSET_Y[index]);
+			// Keep the in-memory offsets in the config's clamped range so the
+			// next drag starts from the position that was actually saved.
+			OFFSET_X[index] = StsConfig.armouryButtonX(BUTTONS[index]);
+			OFFSET_Y[index] = StsConfig.armouryButtonY(BUTTONS[index]);
+			applyPosition(index);
 		}
 	}
 
-	private static boolean isOverButton(double mouseX, double mouseY) {
-		for (Button candidate : currentButtons) {
+	private static int indexAt(double mouseX, double mouseY) {
+		for (int i = 0; i < currentButtons.size(); i++) {
+			Button candidate = currentButtons.get(i);
 			if (mouseX >= candidate.getX() && mouseX <= candidate.getX() + candidate.getWidth()
 				&& mouseY >= candidate.getY() && mouseY <= candidate.getY() + candidate.getHeight()) {
-				return true;
+				return i;
 			}
 		}
-		return false;
+		return -1;
 	}
 
-	/** Moves the whole button stack by the accumulated drag offset. */
-	private static void applyOffset() {
-		if (currentButtons == null) {
+	private static int stackHeight() {
+		return BUTTONS.length * BUTTON_HEIGHT + (BUTTONS.length - 1) * GAP;
+	}
+
+	private static int positionX(int index) {
+		return ANCHOR_X[index] + OFFSET_X[index];
+	}
+
+	private static int positionY(int index) {
+		return anchorY + OFFSET_Y[index];
+	}
+
+	/** Moves one button to its anchor + offset. */
+	private static void applyPosition(int index) {
+		if (currentButtons == null || index < 0 || index >= currentButtons.size()) {
 			return;
 		}
-		for (int i = 0; i < currentButtons.size(); i++) {
-			Button button = currentButtons.get(i);
-			button.setX(anchorX + offsetX);
-			button.setY(anchorY + offsetY + i * (BUTTON_HEIGHT + GAP));
-		}
-	}
-
-	private static void loadSavedPosition() {
-		if (positionLoaded) {
-			return;
-		}
-		positionLoaded = true;
-		try {
-			if (Files.exists(POSITION_FILE)) {
-				JsonObject json = JsonParser.parseString(Files.readString(POSITION_FILE, StandardCharsets.UTF_8))
-					.getAsJsonObject();
-				offsetX = json.has("offsetX") ? json.get("offsetX").getAsInt() : 0;
-				offsetY = json.has("offsetY") ? json.get("offsetY").getAsInt() : 0;
-			}
-		} catch (Exception e) {
-			SpareTheSympathy.LOGGER.warn("Could not read armoury button position, using defaults", e);
-		}
-	}
-
-	/** Persists the drag offset so it survives restarts. */
-	private static void persist() {
-		try {
-			Files.createDirectories(POSITION_FILE.getParent());
-			JsonObject json = new JsonObject();
-			json.addProperty("offsetX", offsetX);
-			json.addProperty("offsetY", offsetY);
-			Files.writeString(POSITION_FILE, json.toString(), StandardCharsets.UTF_8);
-		} catch (Exception e) {
-			SpareTheSympathy.LOGGER.warn("Could not save armoury button position", e);
-		}
+		Button button = currentButtons.get(index);
+		button.setX(positionX(index));
+		button.setY(positionY(index));
 	}
 
 	/**

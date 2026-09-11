@@ -1,11 +1,39 @@
 {
-	"mod": {
-		"sts.command.dump.start": "Dumping pack textures...",
-		"sts.command.dump.done": "Dump complete: %s textures (%s animated) into %s",
-		"sts.command.dump.failed": "Dump failed: %s"
-	},
-	"sts.config.title": "Spare the Sympathy Config",
-	"title.sparethesympathy": "Spare the Sympathy Config",
+	"sts.command.dump.start": "Dumping pack textures...",
+	"sts.command.dump.done": "Dump complete: %s textures (%s animated) into %s",
+	"sts.command.dump.failed": "Dump failed: %s",
+
+	"sts.armoury.export": "Export Link",
+	"sts.armoury.export.tooltip": "Copies a shareable STS builder link for the current loadout to your clipboard.",
+	"sts.armoury.save": "Save to Profile",
+	"sts.armoury.save.tooltip": "Saves the current loadout to your STS profile (if linked) and copies its short link.",
+	"sts.armoury.link": "Link Account",
+	"sts.armoury.linked": "Linked",
+	"sts.armoury.link.tooltip": "Links your Minecraft profile to your Discord account so builds save to your profile.",
+
+	"text.autoconfig.sparethesympathy.title": "Spare the Sympathy Config",
+	"text.autoconfig.sparethesympathy.category.default": "Settings",
 	"text.autoconfig.sparethesympathy.option.siteUrl": "Site URL",
-	"text.autoconfig.sparethesympathy.option.siteUrl.@Tooltip": "Base URL of the STS site (no trailing slash). Defaults to the local dev server."
+	"text.autoconfig.sparethesympathy.option.siteUrl.@Tooltip": "Base URL of the STS site (no trailing slash). Defaults to the local dev server.",
+
+	"text.autoconfig.sparethesympathy.option.exportOnLeft": "Export Link on left",
+	"text.autoconfig.sparethesympathy.option.exportOnLeft.@Tooltip": "Anchor the Export Link button to the left side of the inventory window instead of the right.",
+	"text.autoconfig.sparethesympathy.option.exportX": "Export Link X offset",
+	"text.autoconfig.sparethesympathy.option.exportX.@Tooltip": "Horizontal offset from the anchor. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.exportY": "Export Link Y offset",
+	"text.autoconfig.sparethesympathy.option.exportY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.saveOnLeft": "Save to Profile on left",
+	"text.autoconfig.sparethesympathy.option.saveOnLeft.@Tooltip": "Anchor the Save to Profile button to the left side of the inventory window instead of the right.",
+	"text.autoconfig.sparethesympathy.option.saveX": "Save to Profile X offset",
+	"text.autoconfig.sparethesympathy.option.saveX.@Tooltip": "Horizontal offset from the anchor. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.saveY": "Save to Profile Y offset",
+	"text.autoconfig.sparethesympathy.option.saveY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.linkOnLeft": "Link Account on left",
+	"text.autoconfig.sparethesympathy.option.linkOnLeft.@Tooltip": "Anchor the Link Account button to the left side of the inventory window instead of the right.",
+	"text.autoconfig.sparethesympathy.option.linkX": "Link Account X offset",
+	"text.autoconfig.sparethesympathy.option.linkX.@Tooltip": "Horizontal offset from the anchor. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.linkY": "Link Account Y offset",
+	"text.autoconfig.sparethesympathy.option.linkY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this."
 }

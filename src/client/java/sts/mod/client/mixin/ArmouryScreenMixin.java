@@ -51,7 +51,7 @@ abstract class ArmouryScreenMixin {
 		if (client.screen == null || !ArmouryLoadoutReader.isArmouryScreen(client.screen)) {
 			return;
 		}
-		this.sparethesympathy$armouryButtons = ArmouryButtons.create(width, height);
+		this.sparethesympathy$armouryButtons = ArmouryButtons.create(client.screen, width, height);
 		for (Button button : this.sparethesympathy$armouryButtons) {
 			this.addRenderableWidget(button);
 		}

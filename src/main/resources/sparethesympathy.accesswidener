@@ -5,3 +5,10 @@ accessible field net/minecraft/client/renderer/texture/SpriteContents animatedTe
 accessible field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture frames Ljava/util/List;
 accessible field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo index I
 accessible field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo time I
+
+# Inventory window bounds for anchoring the armoury buttons to its sides.
+accessible field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen leftPos I
+accessible field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen topPos I
+accessible field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen imageWidth I
+accessible field net/minecraft/client/gui/screens/inventory/AbstractContainerScreen imageHeight I
+

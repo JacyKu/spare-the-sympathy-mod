@@ -257,8 +257,9 @@ public final class ArmouryLoadoutReader {
 
 	// Matches an armoury icon back to a dictionary entry by vanilla base item +
 	// display name; masterwork variants share the name, so the highest one
-	// (the "-N" key suffix) wins, mirroring the site's default.
-	private static String matchItemKey(ItemStack stack, List<MonumentaItemDefinition> items) {
+	// (the "-N" key suffix) wins, mirroring the site's default. Also used by
+	// the viewed-player readers (/ps equipment), which show the same items.
+	public static String matchItemKey(ItemStack stack, List<MonumentaItemDefinition> items) {
 		if (stack.isEmpty() || items.isEmpty()) {
 			return "None";
 		}
@@ -302,7 +303,7 @@ public final class ArmouryLoadoutReader {
 		return best != null ? best.key() : "None";
 	}
 
-	private static String matchCharmKey(ItemStack stack, List<MonumentaItemDefinition> items) {
+	public static String matchCharmKey(ItemStack stack, List<MonumentaItemDefinition> items) {
 		if (stack.isEmpty() || items.isEmpty()) {
 			return null;
 		}
