@@ -6,7 +6,8 @@
 		"AbstractContainerScreenMixin",
 		"ArmouryScreenMixin",
 		"ClientPacketListenerMixin",
-		"ContainerScreenMixin"
+		"ContainerScreenMixin",
+		"ViewedPlayersScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

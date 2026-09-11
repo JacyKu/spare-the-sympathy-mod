@@ -1,10 +1,14 @@
 # Spare the Sympathy
 
-A client-side Fabric mod for Minecraft 1.20.4 that dumps Monumenta API items with their correct in-game textures to a spritesheet for [sts.deepa.cat](https://sts.deepa.cat).
+A client-side Fabric mod for Minecraft 1.20.4 that integrates Monumenta with [sts.deepa.cat](https://sts.deepa.cat): save, share and export builds from the Mechanical Armory, cache other players' builds with `/ps`, `/pa` and `/vc`, upload in-game items as custom items, and dump resource pack textures into STS spritesheets.
 
-## Purpose
+## Features
 
-Monumenta applies item textures at runtime via CIT (Custom Item Textures) packs. This mod renders every item from the [Monumenta items API](https://api.playmonumenta.com/items) using the same CIT, Entity Texture Features, and Entity Model Features logic the game uses, so the spritesheet shows items exactly as they appear in-game.
+- **Mechanical Armory buttons** - Export Link, Save to Profile and Link Account as draggable on-screen buttons (position configurable in Mod Menu).
+- **Viewed-player builds** - browse another player with `/ps`, `/pa` and `/vc`; the mod caches their equipment, abilities and charms, with status buttons and `Next` in those GUIs.
+- **Commands** - `/sts help`, `/sts link`, `/sts upload_item`, `/sts export_build <player> <build name>` (shareable link) and `/sts upload_build <player> <build name>` (saved to your account).
+- **Item uploads** - `/sts upload_item` sends the held item to your custom items, and unknown equipment is created automatically when you save a build.
+- **Texture dump** - renders the Monumenta items API through the in-game CIT/ETF/EMF pipeline into STS spritesheets.
 
 ## Requirements
 
@@ -43,3 +47,4 @@ The command fetches all items from the Monumenta API, renders each with its in-g
 ## Animated and oversized items
 
 The dump captures every frame of animated item textures into horizontal strips on a dedicated spritesheet (`sts-itemsheet-anim.png`, separate from the static sheet). The manifest records the per-frame dwell times (in ticks, 50 ms each), a per-entry `sheet` field, and frame 0 is also used as the static icon. Items whose icon extends beyond the 16-unit icon box (e.g. oversized models such as the Plate of Nessi) are re-captured at a wide projection and cropped to their content bounds, with the resulting cell size recorded in the manifest (`w`/`h`).
+wwwwwwwwwwwwwwwwww

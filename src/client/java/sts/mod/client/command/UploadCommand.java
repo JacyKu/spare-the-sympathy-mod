@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * `/sts upload` - uploads the held item to the site as a custom item on the
+ * `/sts upload_item` - uploads the held item to the site as a custom item on
  * player's linked account. Items the site already knows still upload fine
  * (duplicates are skipped server-side); this is mainly for unreleased/event
  * items that aren't in the item database.
@@ -35,7 +35,7 @@ public final class UploadCommand {
 		}
 		ItemStack stack = mc.player.getMainHandItem();
 		if (stack.isEmpty()) {
-			ArmouryTracker.showMessage("Hold the item you want to upload, then run /sts upload.");
+			ArmouryTracker.showMessage("Hold the item you want to upload, then run /sts upload_item.");
 			return;
 		}
 		if (mc.getUser() == null || mc.getUser().getProfileId() == null) {

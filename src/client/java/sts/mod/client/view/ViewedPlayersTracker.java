@@ -55,6 +55,8 @@ public final class ViewedPlayersTracker {
 
 	private static Screen activeScreen;
 	private static ViewedPlayers.Pending activePending;
+	private static ViewedPlayers.Kind activeKind;
+	private static String activeName;
 
 	private ViewedPlayersTracker() {
 	}
@@ -65,6 +67,8 @@ public final class ViewedPlayersTracker {
 		if (screen != activeScreen) {
 			activeScreen = screen;
 			activePending = null;
+			activeKind = null;
+			activeName = null;
 		}
 		if (!(screen instanceof ContainerScreen container)) {
 			return;
@@ -74,17 +78,126 @@ public final class ViewedPlayersTracker {
 			return;
 		}
 		String title = container.getTitle().getString();
+		ViewedPlayers.Kind kind = kindForTitle(title);
+		if (kind == null) {
+			return;
+		}
+		activeKind = kind;
+		activeName = playerForScreen(screen);
 
-		if (STATS_TITLE.equals(title)) {
+		if (kind == ViewedPlayers.Kind.STATS) {
 			ArmouryTracker.ensureItemsAndClasses();
 			parseStats(menu);
-		} else if (ABILITIES_TITLE.equals(title)) {
+		} else if (kind == ViewedPlayers.Kind.ABILITIES) {
 			ArmouryTracker.ensureItemsAndClasses();
 			parseAbilities(menu);
-		} else if (title.endsWith(CHARMS_SUFFIX)) {
+		} else {
 			ArmouryTracker.ensureItemsAndClasses();
-			parseCharms(menu, title.substring(0, title.length() - CHARMS_SUFFIX.length()));
+			parseCharms(menu, activeName);
 		}
+	}
+
+	/** Which view a GUI title belongs to, or null for other screens. */
+	public static ViewedPlayers.Kind kindForTitle(String title) {
+		if (STATS_TITLE.equals(title)) {
+			return ViewedPlayers.Kind.STATS;
+		}
+		if (ABILITIES_TITLE.equals(title)) {
+			return ViewedPlayers.Kind.ABILITIES;
+		}
+		if (title != null && title.endsWith(CHARMS_SUFFIX)) {
+			return ViewedPlayers.Kind.CHARMS;
+		}
+		return null;
+	}
+
+	/**
+	 * The player whose build the open screen shows: the charms title carries
+	 * the name; the stats/abilities screens use the /ps or /pa command target
+	 * (the tracker's active name is the fallback when the command has aged
+	 * out, e.g. after a resize).
+	 */
+	public static String playerForScreen(Screen screen) {
+		if (!(screen instanceof ContainerScreen container)) {
+			return null;
+		}
+		String title = container.getTitle().getString();
+		ViewedPlayers.Kind kind = kindForTitle(title);
+		if (kind == null) {
+			return null;
+		}
+		if (kind == ViewedPlayers.Kind.CHARMS) {
+			return title.substring(0, title.length() - CHARMS_SUFFIX.length());
+		}
+		ViewedPlayers.Pending pending = ViewedPlayers.pending(kind);
+		if (pending != null) {
+			if (kind == ViewedPlayers.Kind.STATS) {
+				return pending.right() != null ? pending.right() : pending.left();
+			}
+			return pending.left();
+		}
+		return activeKind == kind ? activeName : null;
+	}
+
+	/** The player whose view is open (for the status buttons), or null. */
+	public static String activeName() {
+		return activeName;
+	}
+
+	public static ViewedPlayers.Kind activeKind() {
+		return activeKind;
+	}
+
+	/** True when the player's view of this kind has been parsed this session. */
+	public static boolean isViewed(String player, ViewedPlayers.Kind kind) {
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
+		return cached != null && cached.isViewed(kind);
+	}
+
+	/** True when any part of the player's build has been cached. */
+	public static boolean hasCachedData(String player) {
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
+		return cached != null && (cached.hasEquipment() || cached.hasAbilities() || cached.hasCharms());
+	}
+
+	/** Runs the view command (ps/pa/vc) for a player, opening its GUI. */
+	public static void openView(String command, String player) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.player.connection == null || player == null || player.isBlank()) {
+			return;
+		}
+		mc.player.connection.sendCommand(command + " " + player);
+	}
+
+	/** The view after the currently open one, in collection order. */
+	public static ViewedPlayers.Kind nextKind() {
+		if (activeKind == ViewedPlayers.Kind.STATS) {
+			return ViewedPlayers.Kind.ABILITIES;
+		}
+		if (activeKind == ViewedPlayers.Kind.ABILITIES) {
+			return ViewedPlayers.Kind.CHARMS;
+		}
+		return ViewedPlayers.Kind.STATS;
+	}
+
+	public static String tagFor(ViewedPlayers.Kind kind) {
+		return switch (kind) {
+			case STATS -> "ps";
+			case ABILITIES -> "pa";
+			case CHARMS -> "vc";
+		};
+	}
+
+	private static void notifyCached(ViewedPlayers.CachedPlayer cached, ViewedPlayers.Kind kind, String player) {
+		if (player == null || !cached.markNotified(kind)) {
+			return;
+		}
+		String label = switch (kind) {
+			case STATS -> "equipment";
+			case ABILITIES -> "abilities";
+			case CHARMS -> "charms";
+		};
+		ArmouryTracker.showMessage("Cached " + player + "'s " + label + " (/" + tagFor(kind) + ").");
 	}
 
 	// ---------- /ps: equipment ----------
@@ -113,6 +226,13 @@ public final class ViewedPlayersTracker {
 			}
 			if (pending.right() != null) {
 				ViewedPlayers.cache(pending.right()).mergeRegion(region);
+			}
+		}
+		if (activeName != null) {
+			ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(activeName);
+			cached.markViewed(ViewedPlayers.Kind.STATS);
+			if (cached.hasEquipment()) {
+				notifyCached(cached, ViewedPlayers.Kind.STATS, activeName);
 			}
 		}
 	}
@@ -276,10 +396,13 @@ public final class ViewedPlayersTracker {
 			);
 		}
 
-		if (skills.isEmpty() && specSkills.isEmpty()) {
-			return;
+		cached.markViewed(ViewedPlayers.Kind.ABILITIES);
+		if (!skills.isEmpty() || !specSkills.isEmpty()) {
+			cached.mergeAbilities(skills, specSkills, enhancements);
 		}
-		cached.mergeAbilities(skills, specSkills, enhancements);
+		if (cached.hasAbilities()) {
+			notifyCached(cached, ViewedPlayers.Kind.ABILITIES, activeName != null ? activeName : pending.left());
+		}
 	}
 
 	/** The "Current Level:" value from an ability icon's lore, or null. */
@@ -424,7 +547,12 @@ public final class ViewedPlayersTracker {
 				}
 			}
 		}
-		ViewedPlayers.cache(name).mergeCharms(keys, unknown);
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(name);
+		cached.mergeCharms(keys, unknown);
+		cached.markViewed(ViewedPlayers.Kind.CHARMS);
+		if (cached.hasCharms()) {
+			notifyCached(cached, ViewedPlayers.Kind.CHARMS, name);
+		}
 	}
 
 	/** Charm GUI furniture: the glass-pane slot/power placeholders. */

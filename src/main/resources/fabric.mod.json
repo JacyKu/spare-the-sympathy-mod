@@ -3,11 +3,13 @@
 	"id": "sparethesympathy",
 	"version": "${version}",
 	"name": "Spare the Sympathy",
-	"description": "Dumps every texture from the loaded Monumenta resource pack into STS-compatible spritesheets, including animated and oversized textures.",
+	"description": "Deep integration with sts.deepa.cat for Monumenta: save, share and export builds from the Mechanical Armory, cache other players' builds with /ps, /pa and /vc to upload or link them, upload in-game items as custom items, and dump resource pack textures into STS spritesheets.",
 	"authors": [
-		"deepa.cat"
+		"jkitter (jc)",
+		"Deepacat"
 	],
 	"license": "CC0-1.0",
+	"icon": "assets/sparethesympathy/icon.png",
 	"environment": "client",
 	"accessWidener": "sparethesympathy.accesswidener",
 	"mixins": [

@@ -201,21 +201,27 @@ public final class ArmouryTracker {
 
 	public static void showMessage(String message) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player != null) {
-			mc.player.displayClientMessage(Component.literal("[STS] " + message), false);
-		}
+		// Callers include the background executor; chat must be touched on the
+		// client thread.
+		mc.execute(() -> {
+			if (mc.player != null) {
+				mc.player.displayClientMessage(Component.literal("[STS] " + message), false);
+			}
+		});
 	}
 
 	/** Prints a message in chat with the URL as a clickable hyperlink. */
 	public static void showLinkMessage(String url, String prefix) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null) {
-			return;
-		}
-		Component link = Component.literal(url).withStyle(style -> style
-			.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-			.withUnderlined(true));
-		mc.player.displayClientMessage(Component.literal("[STS] " + prefix).append(link), false);
+		mc.execute(() -> {
+			if (mc.player == null) {
+				return;
+			}
+			Component link = Component.literal(url).withStyle(style -> style
+				.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+				.withUnderlined(true));
+			mc.player.displayClientMessage(Component.literal("[STS] " + prefix).append(link), false);
+		});
 	}
 
 	// Export goes through the API like every save: the token is stored (no
@@ -265,7 +271,7 @@ public final class ArmouryTracker {
 	/**
 	 * Saves a build token the way the armoury buttons do: to the player's
 	 * profile when linked, anonymously otherwise, always copying the short
-	 * link. Shared with /sts export of cached viewed players.
+	 * link. Shared with /sts upload_build of cached viewed players.
 	 */
 	public static void saveToken(
 		String name,
@@ -277,7 +283,7 @@ public final class ArmouryTracker {
 	}
 
 	/**
-	 * @param notifyChat also post the result to chat - used by /sts export,
+	 * @param notifyChat also post the result to chat - used by /sts export_build,
 	 *                   whose feedback overlay isn't on screen
 	 */
 	public static void saveToken(
@@ -333,6 +339,14 @@ public final class ArmouryTracker {
 		saveAnonymous(token, name, infusions, false);
 	}
 
+	/**
+	 * Saves a build without an account (never attached to the profile) and
+	 * copies the short link - the /sts export_build path.
+	 */
+	public static void saveTokenAnonymously(String name, String token, boolean notifyChat) {
+		saveAnonymous(token, name, null, notifyChat);
+	}
+
 	private static void saveAnonymous(
 		String token,
 		String name,
@@ -344,16 +358,18 @@ public final class ArmouryTracker {
 		EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, name, infusions);
-				copyToClipboard(StsApiClient.siteUrl() + result.url());
-				feedback = "Build saved and short link copied to clipboard.";
+				String url = StsApiClient.siteUrl() + result.url();
+				copyToClipboard(url);
+				feedback = "Build link generated and copied to clipboard.";
 				if (notifyChat) {
-					showMessage(feedback);
+					showLinkMessage(url, "Build link copied: ");
 				}
 			} catch (Exception e) {
-				copyToClipboard(StsApiClient.siteUrl() + "/builder/" + token);
-				feedback = "Site unreachable - raw link copied instead (" + e.getMessage() + ").";
+				String url = StsApiClient.siteUrl() + "/builder/" + token;
+				copyToClipboard(url);
+				feedback = "Site unreachable - builder link copied instead (" + e.getMessage() + ").";
 				if (notifyChat) {
-					showMessage(feedback);
+					showLinkMessage(url, "Builder link copied: ");
 				}
 			} finally {
 				busy = false;

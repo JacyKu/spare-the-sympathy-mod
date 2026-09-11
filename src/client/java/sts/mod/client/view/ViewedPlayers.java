@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import sts.mod.SpareTheSympathy;
@@ -20,8 +21,9 @@ import sts.mod.client.armoury.ArmouryTracker;
  *     <li>{@code /vc <player>} - &lt;player&gt;'s Charms (charms)</li>
  * </ul>
  * The command mixin remembers which player a command targeted; the tick
- * tracker parses the matching GUI into this cache; {@code /sts export <name>}
- * turns a cached entry back into a build token and saves it (like the
+ * tracker parses the matching GUI into this cache. {@code /sts export_build}
+ * turns a cached entry back into a build token and exports it as an anonymous
+ * link; {@code /sts upload_build} saves it to the caller's account (like the
  * armoury Save button: to the profile when linked, anonymous otherwise).
  * Nothing is written to disk; the cache lives for the game session.
  */
@@ -149,10 +151,9 @@ public final class ViewedPlayers {
 	}
 
 	/**
-	 * Exports one cached player as a build (save + copy link) under the given
-	 * build name. The name is required - the site rejects a second build with
-	 * the same name, so exporting the same player twice needs a fresh name
-	 * (re-exporting an unchanged build with the same name just updates it).
+	 * Generates a shareable builder link for one cached player's build (not
+	 * attached to the account) under the given build name, copies it and posts
+	 * it to chat as a clickable link.
 	 */
 	public static void export(String playerName, String buildName) {
 		CachedPlayer player = get(playerName);
@@ -162,14 +163,52 @@ public final class ViewedPlayers {
 			);
 			return;
 		}
-		String name = buildName == null ? "" : buildName.trim();
-		if (name.isEmpty()) {
-			ArmouryTracker.showMessage("Give the build a name: /sts export <player> <build name>");
+		String name = cleanBuildName(buildName, "export_build");
+		if (name == null) {
 			return;
 		}
-		if (name.length() > 30) {
-			name = name.substring(0, 30);
+		String token = buildToken(player, name);
+		ArmouryTracker.showMessage("Generating " + player.name() + "'s build link as \"" + name + "\"...");
+		ArmouryTracker.saveTokenAnonymously(name, token, true);
+	}
+
+	/**
+	 * Uploads one cached player's build to the caller's account (linked saves
+	 * land on the Discord profile; the site rejects a second build with the
+	 * same name).
+	 */
+	public static void upload(String playerName, String buildName) {
+		CachedPlayer player = get(playerName);
+		if (player == null) {
+			ArmouryTracker.showMessage(
+				"Nothing cached for " + playerName + " - view them with /ps, /pa or /vc first."
+			);
+			return;
 		}
+		String name = cleanBuildName(buildName, "upload_build");
+		if (name == null) {
+			return;
+		}
+		String token = buildToken(player, name);
+		JsonArray unknownItems = new JsonArray();
+		for (JsonObject payload : player.unknownItems()) {
+			unknownItems.add(payload);
+		}
+		ArmouryTracker.showMessage("Uploading " + player.name() + "'s cached build as \"" + name + "\"...");
+		ArmouryTracker.saveToken(name, token, null, unknownItems, true);
+	}
+
+	/** Trimmed/limited build name, or null (with a usage hint) when blank. */
+	private static String cleanBuildName(String buildName, String command) {
+		String name = buildName == null ? "" : buildName.trim();
+		if (name.isEmpty()) {
+			ArmouryTracker.showMessage("Give the build a name: /sts " + command + " <player> <build name>");
+			return null;
+		}
+		return name.length() > 30 ? name.substring(0, 30) : name;
+	}
+
+	private static String buildToken(CachedPlayer player, String name) {
 		List<String> itemKeys = new ArrayList<>();
 		String[] keys = player.itemKeys();
 		for (int i = 0; i < 6; i++) {
@@ -177,7 +216,7 @@ public final class ViewedPlayers {
 		}
 		String charm = player.charmKeys().isEmpty() ? null : String.join(",", player.charmKeys());
 		int[] stats = { 100, 0, 0, 0, 0, 0, player.region() };
-		String token = BuildTokenEncoder.encode(
+		return BuildTokenEncoder.encode(
 			itemKeys,
 			charm,
 			name,
@@ -188,12 +227,6 @@ public final class ViewedPlayers {
 			player.enhancements(),
 			stats
 		);
-		JsonArray unknownItems = new JsonArray();
-		for (JsonObject payload : player.unknownItems()) {
-			unknownItems.add(payload);
-		}
-		ArmouryTracker.showMessage("Exporting " + player.name() + "'s cached build as \"" + name + "\"...");
-		ArmouryTracker.saveToken(name, token, null, unknownItems, true);
 	}
 
 	/** One player's captured build pieces; fields only change when new data arrives. */
@@ -209,6 +242,10 @@ public final class ViewedPlayers {
 		private volatile List<String> enhancements = List.of();
 		private volatile int region = 3;
 		private volatile long updatedAt;
+		// Which view GUIs have been parsed for this player, and which have
+		// already produced a "Cached ..." notification.
+		private final Set<Kind> viewed = ConcurrentHashMap.newKeySet();
+		private final Set<Kind> notified = ConcurrentHashMap.newKeySet();
 
 		private CachedPlayer(String name) {
 			this.name = name;
@@ -256,6 +293,37 @@ public final class ViewedPlayers {
 
 		public long updatedAt() {
 			return updatedAt;
+		}
+
+		/** True when this view GUI has been parsed for this player. */
+		public boolean isViewed(Kind kind) {
+			return viewed.contains(kind);
+		}
+
+		public boolean markViewed(Kind kind) {
+			return viewed.add(kind);
+		}
+
+		/** True the first time a "Cached ..." notification is sent for a view. */
+		public boolean markNotified(Kind kind) {
+			return notified.add(kind);
+		}
+
+		public boolean hasEquipment() {
+			for (String key : itemKeys) {
+				if (key != null && !"None".equals(key)) {
+					return true;
+				}
+			}
+			return !unknownItems.isEmpty();
+		}
+
+		public boolean hasAbilities() {
+			return (className != null && !className.isEmpty()) || !skills.isEmpty() || !specSkills.isEmpty();
+		}
+
+		public boolean hasCharms() {
+			return !charmKeys.isEmpty();
 		}
 
 		/** True when nothing usable has been captured yet. */
