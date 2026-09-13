@@ -169,7 +169,7 @@ public final class ViewedPlayers {
 		}
 		String token = buildToken(player, name);
 		ArmouryTracker.showMessage("Generating " + player.name() + "'s build link as \"" + name + "\"...");
-		ArmouryTracker.saveTokenAnonymously(name, token, true);
+		ArmouryTracker.saveTokenAnonymously(name, token, player.delveInfusions(), basicInfusionsJson(player), true);
 	}
 
 	/**
@@ -195,7 +195,19 @@ public final class ViewedPlayers {
 			unknownItems.add(payload);
 		}
 		ArmouryTracker.showMessage("Uploading " + player.name() + "'s cached build as \"" + name + "\"...");
-		ArmouryTracker.saveToken(name, token, null, unknownItems, true);
+		ArmouryTracker.saveToken(name, token, player.delveInfusions(), unknownItems, basicInfusionsJson(player), true);
+	}
+
+	/** Per-slot basic infusions as the site's state shape. */
+	private static JsonObject basicInfusionsJson(CachedPlayer player) {
+		JsonObject object = new JsonObject();
+		for (Map.Entry<String, BasicInfusion> entry : player.basicInfusions().entrySet()) {
+			JsonObject value = new JsonObject();
+			value.addProperty("name", entry.getValue().name());
+			value.addProperty("level", entry.getValue().level());
+			object.add(entry.getKey(), value);
+		}
+		return object;
 	}
 
 	/** Trimmed/limited build name, or null (with a usage hint) when blank. */
@@ -205,7 +217,7 @@ public final class ViewedPlayers {
 			ArmouryTracker.showMessage("Give the build a name: /sts " + command + " <player> <build name>");
 			return null;
 		}
-		return name.length() > 30 ? name.substring(0, 30) : name;
+		return name.length() > 50 ? name.substring(0, 50) : name;
 	}
 
 	private static String buildToken(CachedPlayer player, String name) {
@@ -215,7 +227,26 @@ public final class ViewedPlayers {
 			itemKeys.add(keys[i] == null ? "None" : keys[i]);
 		}
 		String charm = player.charmKeys().isEmpty() ? null : String.join(",", player.charmKeys());
-		int[] stats = { 100, 0, 0, 0, 0, 0, player.region() };
+		// Basic infusion levels are the builder's stat inputs (it sums them
+		// per type across the six slots); they ride in the token's stat bytes.
+		int tenacity = 0;
+		int vitality = 0;
+		int vigor = 0;
+		int focus = 0;
+		int perspicacity = 0;
+		for (BasicInfusion infusion : player.basicInfusions().values()) {
+			switch (infusion.name().toLowerCase(Locale.ROOT)) {
+				case "tenacity" -> tenacity += infusion.level();
+				case "vitality" -> vitality += infusion.level();
+				case "vigor" -> vigor += infusion.level();
+				case "focus" -> focus += infusion.level();
+				case "perspicacity" -> perspicacity += infusion.level();
+				default -> {
+					// Acumen has no stat byte.
+				}
+			}
+		}
+		int[] stats = { 100, tenacity, vitality, vigor, focus, perspicacity, player.region() };
 		return BuildTokenEncoder.encode(
 			itemKeys,
 			charm,
@@ -227,6 +258,10 @@ public final class ViewedPlayers {
 			player.enhancements(),
 			stats
 		);
+	}
+
+	/** One basic (normal) infusion applied to an item. */
+	public record BasicInfusion(String name, int level) {
 	}
 
 	/** One player's captured build pieces; fields only change when new data arrives. */
@@ -241,6 +276,8 @@ public final class ViewedPlayers {
 		private volatile List<BuildTokenEncoder.Skill> specSkills = List.of();
 		private volatile List<String> enhancements = List.of();
 		private volatile int region = 3;
+		private volatile Map<String, String> delveInfusions = Map.of();
+		private volatile Map<String, BasicInfusion> basicInfusions = Map.of();
 		private volatile long updatedAt;
 		// Which view GUIs have been parsed for this player, and which have
 		// already produced a "Cached ..." notification.
@@ -291,6 +328,16 @@ public final class ViewedPlayers {
 			return region;
 		}
 
+		/** Delve infusions by equipment slot (mainhand..boots). */
+		public Map<String, String> delveInfusions() {
+			return delveInfusions;
+		}
+
+		/** Basic (normal) infusions by equipment slot (mainhand..boots). */
+		public Map<String, BasicInfusion> basicInfusions() {
+			return basicInfusions;
+		}
+
 		public long updatedAt() {
 			return updatedAt;
 		}
@@ -319,7 +366,9 @@ public final class ViewedPlayers {
 		}
 
 		public boolean hasAbilities() {
-			return (className != null && !className.isEmpty()) || !skills.isEmpty() || !specSkills.isEmpty();
+			// The class alone is not enough - the class/spec page needs actual
+			// ability points or a spec to count as cached.
+			return !skills.isEmpty() || !specSkills.isEmpty() || (spec != null && !spec.isEmpty());
 		}
 
 		public boolean hasCharms() {
@@ -431,6 +480,28 @@ public final class ViewedPlayers {
 				this.region = region;
 				this.updatedAt = System.currentTimeMillis();
 			}
+		}
+
+		/** Adds/updates the delve infusions seen on the equipment tooltips. */
+		void mergeDelveInfusions(Map<String, String> infusions) {
+			if (infusions == null || infusions.isEmpty()) {
+				return;
+			}
+			java.util.LinkedHashMap<String, String> merged = new java.util.LinkedHashMap<>(this.delveInfusions);
+			merged.putAll(infusions);
+			this.delveInfusions = java.util.Collections.unmodifiableMap(merged);
+			this.updatedAt = System.currentTimeMillis();
+		}
+
+		/** Adds/updates the basic (normal) infusions seen on the tooltips. */
+		void mergeBasicInfusions(Map<String, BasicInfusion> infusions) {
+			if (infusions == null || infusions.isEmpty()) {
+				return;
+			}
+			java.util.LinkedHashMap<String, BasicInfusion> merged = new java.util.LinkedHashMap<>(this.basicInfusions);
+			merged.putAll(infusions);
+			this.basicInfusions = java.util.Collections.unmodifiableMap(merged);
+			this.updatedAt = System.currentTimeMillis();
 		}
 
 		private static List<JsonObject> mergeUnknown(List<JsonObject> existing, List<JsonObject> added) {

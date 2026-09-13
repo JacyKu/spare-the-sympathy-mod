@@ -230,8 +230,8 @@ public final class ViewedPlayersTracker {
 		}
 		if (activeName != null) {
 			ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(activeName);
-			cached.markViewed(ViewedPlayers.Kind.STATS);
 			if (cached.hasEquipment()) {
+				cached.markViewed(ViewedPlayers.Kind.STATS);
 				notifyCached(cached, ViewedPlayers.Kind.STATS, activeName);
 			}
 		}
@@ -245,11 +245,22 @@ public final class ViewedPlayersTracker {
 	) {
 		String[] keys = new String[6];
 		List<JsonObject> unknown = new ArrayList<>();
+		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>();
+		java.util.Map<String, ViewedPlayers.BasicInfusion> basicInfusions = new java.util.LinkedHashMap<>();
+		Minecraft mc = Minecraft.getInstance();
 		for (int i = 0; i < 6; i++) {
 			ItemStack stack = menu.slots.get(slots[i]).getItem();
 			if (stack.isEmpty() || isStatsPlaceholder(stack)) {
 				keys[i] = "None";
 				continue;
+			}
+			String infusion = infusionOnItem(stack, mc);
+			if (infusion != null) {
+				infusions.put(SLOT_NAMES[i], infusion);
+			}
+			ViewedPlayers.BasicInfusion basic = basicInfusionOnItem(stack, mc);
+			if (basic != null) {
+				basicInfusions.put(SLOT_NAMES[i], basic);
 			}
 			String key = ArmouryLoadoutReader.matchItemKey(stack, items);
 			if ("None".equals(key)) {
@@ -262,7 +273,109 @@ public final class ViewedPlayersTracker {
 			}
 			keys[i] = key;
 		}
-		ViewedPlayers.cache(name).mergeEquipment(keys, unknown);
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(name);
+		cached.mergeEquipment(keys, unknown);
+		if (!infusions.isEmpty()) {
+			cached.mergeDelveInfusions(infusions);
+		}
+		if (!basicInfusions.isEmpty()) {
+			cached.mergeBasicInfusions(basicInfusions);
+		}
+	}
+
+	/** Equipment slot names in the builder's order. */
+	private static final String[] SLOT_NAMES = { "mainhand", "offhand", "helmet", "chestplate", "leggings", "boots" };
+
+	/**
+	 * Delve infusions applied to an item, read from its tooltip (the plugin
+	 * adds them as "<Name> <Roman level>" lore lines, e.g. "Pennate IV").
+	 * Only the delve set is considered - the stat infusions (Acumen, ...) use
+	 * the same format but are not part of a build link.
+	 */
+	private static String infusionOnItem(ItemStack stack, Minecraft mc) {
+		for (Component line : stack.getTooltipLines(mc.player, TooltipFlag.NORMAL)) {
+			String text = line.getString().trim();
+			if (text.isEmpty()) {
+				continue;
+			}
+			String first = text.split(" ")[0];
+			String display = DELVE_INFUSIONS.get(first.toLowerCase(Locale.ROOT));
+			if (display != null) {
+				return display;
+			}
+		}
+		return null;
+	}
+
+	/** Plugin display name per lowercased delve infusion name. */
+	private static final java.util.Map<String, String> DELVE_INFUSIONS = java.util.Map.ofEntries(
+		java.util.Map.entry("antigrav", "AntiGrav"),
+		java.util.Map.entry("ardor", "Ardor"),
+		java.util.Map.entry("aura", "Aura"),
+		java.util.Map.entry("bloodlust", "Bloodlust"),
+		java.util.Map.entry("carapace", "Carapace"),
+		java.util.Map.entry("celerity", "Celerity"),
+		java.util.Map.entry("celestial", "Celestial"),
+		java.util.Map.entry("choler", "Choler"),
+		java.util.Map.entry("decapitation", "Decapitation"),
+		java.util.Map.entry("empowered", "Empowered"),
+		java.util.Map.entry("energize", "Energize"),
+		java.util.Map.entry("epoch", "Epoch"),
+		java.util.Map.entry("execution", "Execution"),
+		java.util.Map.entry("expedite", "Expedite"),
+		java.util.Map.entry("fervor", "Fervor"),
+		java.util.Map.entry("fueled", "Fueled"),
+		java.util.Map.entry("galvanic", "Galvanic"),
+		java.util.Map.entry("grace", "Grace"),
+		java.util.Map.entry("mitosis", "Mitosis"),
+		java.util.Map.entry("natant", "Natant"),
+		java.util.Map.entry("nutriment", "Nutriment"),
+		java.util.Map.entry("orbital", "Orbital"),
+		java.util.Map.entry("pennate", "Pennate"),
+		java.util.Map.entry("quench", "Quench"),
+		java.util.Map.entry("reflection", "Reflection"),
+		java.util.Map.entry("refresh", "Refresh"),
+		java.util.Map.entry("soothing", "Soothing"),
+		java.util.Map.entry("sturdy", "Sturdy"),
+		java.util.Map.entry("understanding", "Understanding"),
+		java.util.Map.entry("unyielding", "Unyielding"),
+		java.util.Map.entry("usurper", "Usurper"),
+		java.util.Map.entry("vengeful", "Vengeful")
+	);
+
+	/** Plugin display name per lowercased basic (normal) infusion name. */
+	private static final java.util.Map<String, String> BASIC_INFUSIONS = java.util.Map.of(
+		"tenacity", "Tenacity",
+		"vitality", "Vitality",
+		"vigor", "Vigor",
+		"focus", "Focus",
+		"perspicacity", "Perspicacity",
+		"acumen", "Acumen"
+	);
+
+	private static final java.util.Map<String, Integer> ROMAN_LEVELS = java.util.Map.of(
+		"i", 1,
+		"ii", 2,
+		"iii", 3,
+		"iv", 4
+	);
+
+	/** The basic infusion applied to an item, from its "&lt;Name&gt; &lt;Roman&gt;" lore line. */
+	private static ViewedPlayers.BasicInfusion basicInfusionOnItem(ItemStack stack, Minecraft mc) {
+		for (Component line : stack.getTooltipLines(mc.player, TooltipFlag.NORMAL)) {
+			String text = line.getString().trim();
+			if (text.isEmpty()) {
+				continue;
+			}
+			String[] parts = text.split(" ");
+			String display = BASIC_INFUSIONS.get(parts[0].toLowerCase(Locale.ROOT));
+			if (display == null) {
+				continue;
+			}
+			int level = parts.length > 1 ? ROMAN_LEVELS.getOrDefault(parts[1].toLowerCase(Locale.ROOT), 1) : 1;
+			return new ViewedPlayers.BasicInfusion(display, level);
+		}
+		return null;
 	}
 
 	/** Empty-slot icons in the stats GUI ("Main Hand Slot" item frames). */
@@ -348,6 +461,7 @@ public final class ViewedPlayersTracker {
 
 		String gameClass = cached.className();
 		String gameSpec = cached.spec();
+		String parsedSpec = null;
 		List<BuildTokenEncoder.Skill> skills = new ArrayList<>();
 		List<BuildTokenEncoder.Skill> specSkills = new ArrayList<>();
 		List<String> enhancements = new ArrayList<>();
@@ -376,8 +490,12 @@ public final class ViewedPlayersTracker {
 			if (gameClass != null && !ref.className().equalsIgnoreCase(gameClass)) {
 				continue;
 			}
-			if (ref.specName() != null && (gameSpec == null || !ref.specName().equalsIgnoreCase(gameSpec))) {
-				continue;
+			if (ref.specName() != null) {
+				if (gameSpec != null && !ref.specName().equalsIgnoreCase(gameSpec)) {
+					// The other spec's page: ignore its abilities.
+					continue;
+				}
+				parsedSpec = ref.specName();
 			}
 			int points = 0;
 			if (level.startsWith("Level 1")) {
@@ -396,11 +514,16 @@ public final class ViewedPlayersTracker {
 			);
 		}
 
-		cached.markViewed(ViewedPlayers.Kind.ABILITIES);
+		if (parsedSpec != null && cached.spec() == null) {
+			// The skill page's spec items weren't readable (or it was skipped):
+			// the spec page's own abilities identify the spec.
+			cached.setSpec(parsedSpec);
+		}
 		if (!skills.isEmpty() || !specSkills.isEmpty()) {
 			cached.mergeAbilities(skills, specSkills, enhancements);
 		}
 		if (cached.hasAbilities()) {
+			cached.markViewed(ViewedPlayers.Kind.ABILITIES);
 			notifyCached(cached, ViewedPlayers.Kind.ABILITIES, activeName != null ? activeName : pending.left());
 		}
 	}
@@ -549,8 +672,8 @@ public final class ViewedPlayersTracker {
 		}
 		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(name);
 		cached.mergeCharms(keys, unknown);
-		cached.markViewed(ViewedPlayers.Kind.CHARMS);
 		if (cached.hasCharms()) {
+			cached.markViewed(ViewedPlayers.Kind.CHARMS);
 			notifyCached(cached, ViewedPlayers.Kind.CHARMS, name);
 		}
 	}

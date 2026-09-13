@@ -105,6 +105,15 @@ public final class StsApiClient {
 	 */
 	public static SaveResult saveBuild(String uuid, String token, String name,
 		java.util.Map<String, String> infusions, JsonArray items) throws IOException {
+		return saveBuild(uuid, token, name, infusions, items, null);
+	}
+
+	/**
+	 * Saves a build; {@code basicInfusions} is the per-slot normal infusion
+	 * map ({@code slot: {name, level}}) stored with the build state.
+	 */
+	public static SaveResult saveBuild(String uuid, String token, String name,
+		java.util.Map<String, String> infusions, JsonArray items, JsonObject basicInfusions) throws IOException {
 		JsonObject body = new JsonObject();
 		if (uuid != null && !uuid.isEmpty()) {
 			body.addProperty("uuid", uuid);
@@ -117,6 +126,9 @@ public final class StsApiClient {
 			JsonObject object = new JsonObject();
 			infusions.forEach(object::addProperty);
 			body.add("infusions", object);
+		}
+		if (basicInfusions != null && basicInfusions.size() > 0) {
+			body.add("basicInfusions", basicInfusions);
 		}
 		if (items != null && items.size() > 0) {
 			body.add("items", items);

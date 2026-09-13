@@ -265,7 +265,7 @@ public final class ArmouryTracker {
 		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
 			unknownItems.add(payload);
 		}
-		saveToken(name, token, infusions, unknownItems, false);
+		saveToken(name, token, infusions, unknownItems, null, false);
 	}
 
 	/**
@@ -279,24 +279,27 @@ public final class ArmouryTracker {
 		java.util.Map<String, String> infusions,
 		com.google.gson.JsonArray unknownItems
 	) {
-		saveToken(name, token, infusions, unknownItems, false);
+		saveToken(name, token, infusions, unknownItems, null, false);
 	}
 
 	/**
-	 * @param notifyChat also post the result to chat - used by /sts export_build,
-	 *                   whose feedback overlay isn't on screen
+	 * @param basicInfusions per-slot normal infusions ({@code slot: {name, level}})
+	 * @param notifyChat     also post the result to chat - used by the /sts
+	 *                       export_build and upload_build commands, whose
+	 *                       feedback overlay isn't on screen
 	 */
 	public static void saveToken(
 		String name,
 		String token,
 		java.util.Map<String, String> infusions,
 		com.google.gson.JsonArray unknownItems,
+		com.google.gson.JsonObject basicInfusions,
 		boolean notifyChat
 	) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.getUser() == null || mc.getUser().getProfileId() == null) {
 			// No Minecraft profile (offline mode): save anonymously.
-			saveAnonymous(token, name, infusions, notifyChat);
+			saveAnonymous(token, name, infusions, basicInfusions, notifyChat);
 			return;
 		}
 		String uuid = mc.getUser().getProfileId().toString();
@@ -304,7 +307,9 @@ public final class ArmouryTracker {
 		feedback = null;
 		EXECUTOR.execute(() -> {
 			try {
-				StsApiClient.SaveResult result = StsApiClient.saveBuild(uuid, token, name, infusions, unknownItems);
+				StsApiClient.SaveResult result = StsApiClient.saveBuild(
+					uuid, token, name, infusions, unknownItems, basicInfusions
+				);
 				copyToClipboard(StsApiClient.siteUrl() + result.url());
 				String created = result.createdItems().isEmpty()
 					? ""
@@ -335,29 +340,32 @@ public final class ArmouryTracker {
 		});
 	}
 
-	private static void saveAnonymous(String token, String name, java.util.Map<String, String> infusions) {
-		saveAnonymous(token, name, infusions, false);
-	}
-
 	/**
 	 * Saves a build without an account (never attached to the profile) and
 	 * copies the short link - the /sts export_build path.
 	 */
-	public static void saveTokenAnonymously(String name, String token, boolean notifyChat) {
-		saveAnonymous(token, name, null, notifyChat);
+	public static void saveTokenAnonymously(
+		String name,
+		String token,
+		java.util.Map<String, String> infusions,
+		com.google.gson.JsonObject basicInfusions,
+		boolean notifyChat
+	) {
+		saveAnonymous(token, name, infusions, basicInfusions, notifyChat);
 	}
 
 	private static void saveAnonymous(
 		String token,
 		String name,
 		java.util.Map<String, String> infusions,
+		com.google.gson.JsonObject basicInfusions,
 		boolean notifyChat
 	) {
 		busy = true;
 		feedback = null;
 		EXECUTOR.execute(() -> {
 			try {
-				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, name, infusions);
+				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, name, infusions, null, basicInfusions);
 				String url = StsApiClient.siteUrl() + result.url();
 				copyToClipboard(url);
 				feedback = "Build link generated and copied to clipboard.";
