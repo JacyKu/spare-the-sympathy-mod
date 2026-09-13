@@ -326,7 +326,7 @@ public final class ArmouryTracker {
 			} catch (Exception e) {
 				String detail = e.getMessage() == null ? "" : e.getMessage();
 				if (detail.contains("duplicate")) {
-					feedback = "A build with this name already exists on your profile - rename the build and try again.";
+					feedback = "A build with this name already exists - rename the build and try again.";
 					showMessage(feedback);
 				} else {
 					feedback = "Could not save the build (" + detail + ").";
