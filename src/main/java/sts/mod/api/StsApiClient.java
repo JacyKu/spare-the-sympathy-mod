@@ -76,13 +76,13 @@ public final class StsApiClient {
 		JsonObject body = new JsonObject();
 		body.addProperty("uuid", uuid);
 		body.addProperty("deviceToken", ModIdentity.deviceToken());
-		JsonObject json = JsonParser.parseString(post("/api/v1/mod/link", body)).getAsJsonObject();
+		JsonObject json = JsonParser.parseString(post("/api/v2/mod/link", body)).getAsJsonObject();
 		return new LinkRequest(json.get("url").getAsString(), json.get("code").getAsString());
 	}
 
 	/** Whether the UUID is currently linked to a Discord account. */
 	public static boolean isLinked(String uuid) throws IOException {
-		JsonObject json = JsonParser.parseString(get("/api/v1/mod/link/status?uuid=" + uuid)).getAsJsonObject();
+		JsonObject json = JsonParser.parseString(get("/api/v2/mod/link/status?uuid=" + uuid)).getAsJsonObject();
 		return json.has("linked") && json.get("linked").getAsBoolean();
 	}
 
@@ -135,7 +135,7 @@ public final class StsApiClient {
 		if (items != null && items.size() > 0) {
 			body.add("items", items);
 		}
-		JsonObject json = JsonParser.parseString(post("/api/v1/mod/builds", body)).getAsJsonObject();
+		JsonObject json = JsonParser.parseString(post("/api/v2/mod/builds", body)).getAsJsonObject();
 		return new SaveResult(json.get("url").getAsString(), json.get("linked").getAsBoolean(),
 			json.get("saved").getAsBoolean(), readStringArray(json, "createdItems"));
 	}
@@ -155,7 +155,7 @@ public final class StsApiClient {
 		body.addProperty("uuid", uuid);
 		body.addProperty("deviceToken", ModIdentity.deviceToken());
 		body.add("items", items);
-		JsonObject json = JsonParser.parseString(post("/api/v1/mod/custom-items", body)).getAsJsonObject();
+		JsonObject json = JsonParser.parseString(post("/api/v2/mod/custom-items", body)).getAsJsonObject();
 		List<String> skipped = new ArrayList<>();
 		if (json.has("skipped") && json.get("skipped").isJsonArray()) {
 			for (JsonElement element : json.getAsJsonArray("skipped")) {
@@ -181,7 +181,7 @@ public final class StsApiClient {
 
 	// ---------- skills data ----------
 
-	/** One ability as advertised by the site's /api/v1/skills. */
+	/** One ability as advertised by the site's /api/v2/skills. */
 	public record Ability(String scoreboardId, String displayName) {
 	}
 
@@ -195,7 +195,7 @@ public final class StsApiClient {
 
 	/** Fetches the class/skill catalog the builder uses. */
 	public static List<GameClass> fetchSkills() throws IOException {
-		JsonObject json = JsonParser.parseString(get("/api/v1/skills")).getAsJsonObject();
+		JsonObject json = JsonParser.parseString(get("/api/v2/skills")).getAsJsonObject();
 		JsonArray classes = json.getAsJsonArray("classes");
 		List<GameClass> result = new ArrayList<>();
 		for (JsonElement element : classes) {
