@@ -6,9 +6,9 @@ import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Renders the transient feedback toast (e.g. "Build saved ...") while the
- * Mechanical Armory screen is open. The armoury action buttons themselves
- * are real screen widgets now (see ArmouryButtons + ArmouryScreenMixin), so
- * this overlay only handles the ephemeral status message.
+ * Mechanical Armory screen is open. The armoury action buttons are real
+ * screen widgets (see ArmouryButtons + ArmouryScreenMixin), so this overlay
+ * only handles the ephemeral status message.
  */
 public final class ArmouryOverlay {
 	private static final int BG = 0xE61B1B1B;

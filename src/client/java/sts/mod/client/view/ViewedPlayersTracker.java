@@ -148,13 +148,11 @@ public final class ViewedPlayersTracker {
 		return activeKind;
 	}
 
-	/** True when the player's view of this kind has been parsed this session. */
 	public static boolean isViewed(String player, ViewedPlayers.Kind kind) {
 		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
 		return cached != null && cached.isViewed(kind);
 	}
 
-	/** True when any part of the player's build has been cached. */
 	public static boolean hasCachedData(String player) {
 		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
 		return cached != null && (cached.hasEquipment() || cached.hasAbilities() || cached.hasCharms());

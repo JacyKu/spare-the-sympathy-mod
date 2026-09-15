@@ -37,7 +37,6 @@ public final class StsConfig {
 		return normalizeSiteUrl(config().siteUrl);
 	}
 
-	/** Which side of the inventory window the button anchors to. */
 	public static ArmourySide armouryButtonSide(ArmouryButton button) {
 		StsModConfig config = config();
 		boolean onLeft = switch (button) {
@@ -48,7 +47,6 @@ public final class StsConfig {
 		return onLeft ? ArmourySide.LEFT : ArmourySide.RIGHT;
 	}
 
-	/** The button's horizontal offset from its anchor. */
 	public static int armouryButtonX(ArmouryButton button) {
 		StsModConfig config = config();
 		return clampOffset(switch (button) {
@@ -58,7 +56,6 @@ public final class StsConfig {
 		});
 	}
 
-	/** The button's vertical offset from its anchor. */
 	public static int armouryButtonY(ArmouryButton button) {
 		StsModConfig config = config();
 		return clampOffset(switch (button) {

@@ -24,8 +24,9 @@ public class SpareTheSympathyClient implements ClientModInitializer {
 		LinkCommand.register();
 		ConfigCommand.register();
 		HudRenderCallback.EVENT.register((graphics, tickDelta) -> DumpRunner.onHudRender());
-		// The armoury buttons render via ContainerScreenMixin at the RETURN of
-		// ContainerScreen.render, i.e. after slot contents and item tooltips.
+		// The armoury feedback overlay renders via ContainerScreenMixin at the
+		// RETURN of ContainerScreen.render, i.e. after slot contents and item
+		// tooltips.
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ArmouryTracker.onClientTick());
 		// Caches other players' builds while their /ps, /pa or /vc GUIs are open.
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ViewedPlayersTracker.onClientTick());

@@ -72,7 +72,6 @@ public final class DumpRunner {
 	private DumpRunner() {
 	}
 
-	/** Nearest-neighbor upscale; lifts 16px GUI captures into 64px cells. */
 	public static int[] upscaleNearest(int[] source, int sourceWidth, int sourceHeight, int targetWidth, int targetHeight) {
 		int[] result = new int[targetWidth * targetHeight];
 		for (int y = 0; y < targetHeight; y++) {

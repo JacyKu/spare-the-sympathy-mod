@@ -342,8 +342,7 @@ public final class ViewedPlayers {
 			return updatedAt;
 		}
 
-		/** True when this view GUI has been parsed for this player. */
-		public boolean isViewed(Kind kind) {
+			public boolean isViewed(Kind kind) {
 			return viewed.contains(kind);
 		}
 

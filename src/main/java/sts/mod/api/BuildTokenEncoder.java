@@ -6,8 +6,9 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * Encodes a build into the site's compact binary {@code v1_} token format
- * (version 6). This is a faithful Java port of the encoder half of
+ * Encodes a build into the site's compact binary {@code v1_} token format.
+ * The mod emits version 6; the site's current version 7 shares the same
+ * layout. This is a faithful Java port of the encoder half of
  * {@code apps/sts/app/_src/utils/builder/buildUrlCodec.js}: byte-for-byte the
  * same layout, the same FNV-1a over UTF-16 code units, the same base64url.
  * <p>

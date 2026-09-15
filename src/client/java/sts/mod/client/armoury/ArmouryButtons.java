@@ -14,7 +14,7 @@ import sts.mod.config.ArmourySide;
 /**
  * Real screen buttons for the armoury actions (Export Link / Save to
  * Profile / Link Account), added to the open Mechanical Armory screen as
- * proper widgets instead of hand-drawn HUD rectangles. Buttons are rebuilt
+ * proper widgets. Buttons are rebuilt
  * every time the screen initialises (including on resize, which vanilla
  * handles by re-running init) and their labels/activity refresh each render
  * frame, mirroring the dictionary mod's floating screen button pattern.
@@ -213,7 +213,6 @@ public final class ArmouryButtons {
 		return anchorY + OFFSET_Y[index];
 	}
 
-	/** Moves one button to its anchor + offset. */
 	private static void applyPosition(int index) {
 		if (currentButtons == null || index < 0 || index >= currentButtons.size()) {
 			return;

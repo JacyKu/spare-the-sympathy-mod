@@ -30,7 +30,6 @@ public final class StsApiClient {
 	private StsApiClient() {
 	}
 
-	/** The configured site origin (from the mod config file). */
 	public static String siteUrl() {
 		return StsConfig.siteUrl();
 	}

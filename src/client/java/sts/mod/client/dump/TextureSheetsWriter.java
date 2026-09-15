@@ -17,8 +17,8 @@ import java.util.List;
 
 /**
  * Partitions rendered item icons into the static main sheet and the animation
- * sheet, packs both, upscales the 16px GUI captures to 64px cells, blits them,
- * and writes the PNGs plus the manifest, map, and CSS files.
+ * sheet, packs both, fits the rendered GUI captures into 64px cells, blits
+ * them, and writes the PNGs plus the manifest, map, and CSS files.
  */
 public final class TextureSheetsWriter {
 	private static final String SHEET_MAIN = "main";

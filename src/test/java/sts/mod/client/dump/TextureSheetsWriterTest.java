@@ -53,7 +53,8 @@ class TextureSheetsWriterTest {
 		assertTrue(manifest.contains("\"width\": 64"));
 
 		// All cells are 64x64; the colored content sits centered in the cell
-		// (the 96px square is fitted to 56px, centered at 32,32).
+		// (the 96px square is scaled by an integer factor of 2 to 48px,
+		// centered at 32,32).
 		try (NativeImage sheet = NativeImage.read(Files.readAllBytes(tempDir.resolve("itemsheet-anim.png")))) {
 			assertEquals(red, sheet.getPixelRGBA(32, 32), "frame 0 color at cell center");
 			assertEquals(0, sheet.getPixelRGBA(0, 0) >>> 24, "corner stays transparent");

@@ -20,7 +20,7 @@ import sts.mod.client.armoury.ArmouryLoadoutReader;
 /**
  * Adds the STS armoury action buttons (Export Link / Save to Profile / Link
  * Account) to the open Mechanical Armory container screen as real screen
- * widgets, instead of hand-drawn HUD rectangles + manual click routing.
+ * widgets.
  * <p>
  * The buttons are created whenever a Mechanical Armory screen initialises
  * (vanilla re-runs init on resize too, so they reposition themselves) and
