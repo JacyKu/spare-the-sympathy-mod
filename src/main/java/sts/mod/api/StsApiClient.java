@@ -15,10 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Minimal HTTP client for the STS site API. The mod is unauthenticated: the
- * link code it gets back is the proof of in-game ownership, and builds are
- * only stored server-side once a Minecraft UUID is linked to a Discord
- * account (via the /link confirmation flow in a browser).
+ * Minimal HTTP client for the STS site API. Linking works with just the
+ * Minecraft UUID plus a pending-link code confirmed in the browser; from then
+ * on every upload also presents this device's {@link ModIdentity} token, so a
+ * public UUID alone can never write to a linked account.
  */
 public final class StsApiClient {
 	private static final String USER_AGENT = "sparethesympathy/1.0.0";
@@ -75,6 +75,7 @@ public final class StsApiClient {
 	public static LinkRequest requestLink(String uuid) throws IOException {
 		JsonObject body = new JsonObject();
 		body.addProperty("uuid", uuid);
+		body.addProperty("deviceToken", ModIdentity.deviceToken());
 		JsonObject json = JsonParser.parseString(post("/api/v1/mod/link", body)).getAsJsonObject();
 		return new LinkRequest(json.get("url").getAsString(), json.get("code").getAsString());
 	}
@@ -117,6 +118,7 @@ public final class StsApiClient {
 		JsonObject body = new JsonObject();
 		if (uuid != null && !uuid.isEmpty()) {
 			body.addProperty("uuid", uuid);
+			body.addProperty("deviceToken", ModIdentity.deviceToken());
 		}
 		body.addProperty("token", token);
 		if (name != null && !name.isEmpty()) {
@@ -151,6 +153,7 @@ public final class StsApiClient {
 	public static UploadResult uploadItems(String uuid, JsonArray items) throws IOException {
 		JsonObject body = new JsonObject();
 		body.addProperty("uuid", uuid);
+		body.addProperty("deviceToken", ModIdentity.deviceToken());
 		body.add("items", items);
 		JsonObject json = JsonParser.parseString(post("/api/v1/mod/custom-items", body)).getAsJsonObject();
 		List<String> skipped = new ArrayList<>();
