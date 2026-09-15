@@ -29,6 +29,11 @@ public final class StsConfig {
 	/** How far each armoury button can be moved from its anchor. */
 	public static final int ARMOURY_BUTTON_OFFSET_LIMIT = 400;
 
+	/** Default /msg text for /buildstealer2000 when the option is enabled. */
+	public static final String DEFAULT_BUILD_STEALER_MESSAGE = "just stole your build!";
+	/** Upper bound for the configurable taunt (server chat line limits). */
+	public static final int BUILD_STEALER_MESSAGE_MAX = 200;
+
 	private StsConfig() {
 	}
 
@@ -168,6 +173,38 @@ public final class StsConfig {
 			return DEFAULT_SITE_URL;
 		}
 		return url.replaceAll("/+$", "");
+	}
+
+	/** Whether the /buildstealer2000 alias /msgs the target player. */
+	public static boolean buildStealerMessageEnabled() {
+		return config().buildStealerMessageEnabled;
+	}
+
+	/** The configured /buildstealer2000 message (always non-empty). */
+	public static String buildStealerMessage() {
+		return normalizeBuildStealerMessage(config().buildStealerMessage);
+	}
+
+	/**
+	 * Pure helper: collapses the taunt to one line, drops a leading slash
+	 * (it is typed as a command argument) and falls back to the default when
+	 * nothing usable is left; never longer than
+	 * {@link #BUILD_STEALER_MESSAGE_MAX} characters.
+	 */
+	public static String normalizeBuildStealerMessage(String message) {
+		if (message == null) {
+			return DEFAULT_BUILD_STEALER_MESSAGE;
+		}
+		String clean = message.replaceAll("[\\r\\n]", " ").replaceAll("\\s+", " ").trim();
+		while (clean.startsWith("/")) {
+			clean = clean.substring(1).trim();
+		}
+		if (clean.isEmpty()) {
+			return DEFAULT_BUILD_STEALER_MESSAGE;
+		}
+		return clean.length() > BUILD_STEALER_MESSAGE_MAX
+			? clean.substring(0, BUILD_STEALER_MESSAGE_MAX)
+			: clean;
 	}
 
 	/** Pure helper: keeps a button offset within the config slider range. */

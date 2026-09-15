@@ -42,6 +42,14 @@ public class StsModConfig implements ConfigData {
 	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
 	public int linkY = 52;
 
+	// /buildstealer2000: optionally /msg the player the alias was used on.
+	// Only the alias triggers this - plain /ps never does.
+
+	@ConfigEntry.Gui.Tooltip
+	public boolean buildStealerMessageEnabled = false;
+	@ConfigEntry.Gui.Tooltip
+	public String buildStealerMessage = StsConfig.DEFAULT_BUILD_STEALER_MESSAGE;
+
 	@Override
 	public void validatePostLoad() throws ValidationException {
 		this.siteUrl = StsConfig.normalizeSiteUrl(this.siteUrl);
@@ -51,5 +59,6 @@ public class StsModConfig implements ConfigData {
 		this.saveY = StsConfig.clampOffset(this.saveY);
 		this.linkX = StsConfig.clampOffset(this.linkX);
 		this.linkY = StsConfig.clampOffset(this.linkY);
+		this.buildStealerMessage = StsConfig.normalizeBuildStealerMessage(this.buildStealerMessage);
 	}
 }

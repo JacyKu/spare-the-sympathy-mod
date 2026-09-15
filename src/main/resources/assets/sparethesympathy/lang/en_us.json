@@ -35,5 +35,10 @@
 	"text.autoconfig.sparethesympathy.option.linkX": "Link Account X offset",
 	"text.autoconfig.sparethesympathy.option.linkX.@Tooltip": "Horizontal offset from the anchor. Ctrl+dragging the button in-game updates this.",
 	"text.autoconfig.sparethesympathy.option.linkY": "Link Account Y offset",
-	"text.autoconfig.sparethesympathy.option.linkY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this."
+	"text.autoconfig.sparethesympathy.option.linkY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.buildStealerMessageEnabled": "Taunt the player (/buildstealer2000)",
+	"text.autoconfig.sparethesympathy.option.buildStealerMessageEnabled.@Tooltip": "/msg the player whose build you steal with /buildstealer2000. Only that alias sends it - plain /ps never does. Off by default.",
+	"text.autoconfig.sparethesympathy.option.buildStealerMessage": "Taunt message",
+	"text.autoconfig.sparethesympathy.option.buildStealerMessage.@Tooltip": "The message sent by /buildstealer2000. Default: just stole your build!"
 }

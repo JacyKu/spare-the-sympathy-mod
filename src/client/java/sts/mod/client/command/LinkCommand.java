@@ -101,8 +101,9 @@ public final class LinkCommand {
 		source.sendFeedback(commandLine("/sts upload_item", "Upload the held item as a custom item on your linked account."));
 		source.sendFeedback(commandLine(EXPORT_USAGE, "Generate a shareable builder link for a viewed player's cached build."));
 		source.sendFeedback(commandLine(UPLOAD_USAGE, "Upload a viewed player's cached build to your account."));
+		source.sendFeedback(commandLine("/buildstealer2000 <player>", "Alias for /ps <player> - opens their stats GUI so the build is cached."));
 		source.sendFeedback(
-			Component.literal("View a player with /ps, /pa or /vc first so their build is cached.")
+			Component.literal("Right-click a sign with [STS] and a build id to get its link.")
 				.withStyle(ChatFormatting.DARK_GRAY)
 		);
 	}
@@ -114,12 +115,22 @@ public final class LinkCommand {
 
 	/** One help line: clickable command usage plus a grey description. */
 	private static Component commandLine(String usage, String description) {
-		String[] parts = usage.split(" ");
-		String suggestion = (parts.length >= 2 ? parts[0] + " " + parts[1] : usage) + " ";
+		// The suggestion stops before the first placeholder so clicking the
+		// line pre-fills the real arguments (not "<player>").
+		StringBuilder suggestion = new StringBuilder();
+		for (String part : usage.split(" ")) {
+			if (part.startsWith("<")) {
+				break;
+			}
+			suggestion.append(part).append(' ');
+		}
+		if (suggestion.length() == 0) {
+			suggestion.append(usage).append(' ');
+		}
 		return Component.literal(usage)
 			.withStyle(style -> style
 				.withColor(ChatFormatting.YELLOW)
-				.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggestion))
+				.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggestion.toString()))
 				.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Click to use this command"))))
 			.append(Component.literal(" - " + description).withStyle(ChatFormatting.GRAY));
 	}

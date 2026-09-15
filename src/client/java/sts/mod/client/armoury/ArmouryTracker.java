@@ -43,6 +43,11 @@ public final class ArmouryTracker {
 	private static final AtomicBoolean CLASSES_REQUESTED = new AtomicBoolean(false);
 	private static volatile boolean itemsReady;
 	private static volatile boolean classesReady;
+	// How often a failed item-dictionary fetch is retried while the armoury
+	// is open (a missing dictionary makes every item look like an unknown one,
+	// so the loadout is not parsed until it exists).
+	private static final long ITEMS_RETRY_INTERVAL_MS = 30_000;
+	private static volatile long lastItemsAttempt;
 
 	// Link status is re-checked periodically while the armoury is open, so the
 	// Link Account button flips to Linked after the browser flow completes
@@ -77,15 +82,17 @@ public final class ArmouryTracker {
 
 		// The loadout is only parsed on the loadout view; on the overview page
 		// the rows hold loadout icons which would parse as bogus equipment.
+		// Parsing also waits for the item dictionary: without it every icon
+		// would be recorded (and later uploaded) as an unknown item.
 		boolean loadoutView = ArmouryLoadoutReader.isLoadoutView(screen);
-		if (loadoutView) {
+		if (loadoutView && itemsReady && items != null && !items.isEmpty()) {
 			ArmouryLoadoutReader.Loadout parsed = ArmouryLoadoutReader.read(screen, items(), classes());
 			if (parsed != null) {
 				loadout = parsed;
 			}
 		} else {
-			// Overview page: no loadout is on display, so the action buttons
-			// must not be able to target a loadout.
+			// Overview page, or the dictionary is still loading / unavailable:
+			// the action buttons must not be able to target a loadout.
 			loadout = null;
 		}
 	}
@@ -102,20 +109,30 @@ public final class ArmouryTracker {
 
 	/** Starts loading the item dictionary + class catalog if not loaded yet. */
 	public static void ensureItemsAndClasses() {
-		if (items == null) {
+		long now = System.currentTimeMillis();
+		// A total failure (API after retries + no cache) leaves items null so
+		// a later armory visit retries, throttled so a broken connection
+		// doesn't hammer the API every tick.
+		if (items == null && now - lastItemsAttempt >= ITEMS_RETRY_INTERVAL_MS) {
+			lastItemsAttempt = now;
 			itemsReady = false;
+			items = List.of(); // placeholder while the fetch runs (also stops re-queueing)
 			EXECUTOR.execute(() -> {
 				try {
-					items = MonumentaItemRepository.getItems();
-					SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items for the armoury", items.size());
+					List<MonumentaItemDefinition> loaded = MonumentaItemRepository.getItems();
+					items = loaded; // null = API + cache both failed -> retry later
+					if (loaded != null) {
+						SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items for the armoury", loaded.size());
+					} else {
+						SpareTheSympathy.LOGGER.warn("Monumenta items unavailable (API + cache) - retrying later");
+					}
 				} catch (RuntimeException e) {
 					SpareTheSympathy.LOGGER.warn("Failed to load Monumenta items for the armoury: {}", e.toString());
-					items = null; // allow a retry on the next open
+					items = null; // allow a retry later
 				} finally {
 					itemsReady = true;
 				}
 			});
-			items = List.of(); // avoid re-queueing while the fetch runs
 		}
 		if (classes == null && CLASSES_REQUESTED.compareAndSet(false, true)) {
 			classesReady = false;
@@ -236,11 +253,14 @@ public final class ArmouryTracker {
 		}
 		String token = encode(current);
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>(current.delveInfusions());
+		com.google.gson.JsonObject basicInfusions =
+			sts.mod.api.InfusionReader.basicInfusionsJson(current.basicInfusions());
 		busy = true;
 		feedback = null;
 		EXECUTOR.execute(() -> {
 			try {
-				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, buildName(current), infusions);
+				StsApiClient.SaveResult result =
+					StsApiClient.saveBuild(null, token, buildName(current), infusions, null, basicInfusions);
 				copyToClipboard(StsApiClient.siteUrl() + result.url());
 				feedback = "Build saved and short link copied to clipboard.";
 			} catch (Exception e) {
@@ -260,12 +280,14 @@ public final class ArmouryTracker {
 		}
 		String token = encode(current);
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>(current.delveInfusions());
+		com.google.gson.JsonObject basicInfusions =
+			sts.mod.api.InfusionReader.basicInfusionsJson(current.basicInfusions());
 		String name = buildName(current);
 		com.google.gson.JsonArray unknownItems = new com.google.gson.JsonArray();
 		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
 			unknownItems.add(payload);
 		}
-		saveToken(name, token, infusions, unknownItems, null, false);
+		saveToken(name, token, infusions, unknownItems, basicInfusions, false);
 	}
 
 	/**
@@ -327,6 +349,12 @@ public final class ArmouryTracker {
 				String detail = e.getMessage() == null ? "" : e.getMessage();
 				if (detail.contains("duplicate")) {
 					feedback = "A build with this name already exists - rename the build and try again.";
+					showMessage(feedback);
+				} else if (detail.contains("invalid device token")) {
+					// The link's device hash no longer matches this install
+					// (e.g. the account was re-linked elsewhere): the player
+					// must re-confirm the link from this game.
+					feedback = "This device isn't authorised for the linked account anymore - run /sts link again.";
 					showMessage(feedback);
 				} else {
 					feedback = "Could not save the build (" + detail + ").";
@@ -427,6 +455,20 @@ public final class ArmouryTracker {
 	}
 
 	private static String encode(ArmouryLoadoutReader.Loadout loadout) {
+		// Basic (normal) infusion levels are the builder's stat inputs (it
+		// sums them per type across the six slots); they ride in the token's
+		// stat bytes. The region stays at the builder default (the armoury
+		// view doesn't state one).
+		java.util.Map<String, sts.mod.api.InfusionReader.BasicInfusion> basics = loadout.basicInfusions();
+		int[] stats = {
+			100,
+			sts.mod.api.InfusionReader.basicLevelSum(basics, "Tenacity"),
+			sts.mod.api.InfusionReader.basicLevelSum(basics, "Vitality"),
+			sts.mod.api.InfusionReader.basicLevelSum(basics, "Vigor"),
+			sts.mod.api.InfusionReader.basicLevelSum(basics, "Focus"),
+			sts.mod.api.InfusionReader.basicLevelSum(basics, "Perspicacity"),
+			3,
+		};
 		return BuildTokenEncoder.encode(
 			List.of(loadout.itemKeys()),
 			loadout.charmKeys().isEmpty() ? null : String.join(",", loadout.charmKeys()),
@@ -436,7 +478,7 @@ public final class ArmouryTracker {
 			loadout.skills(),
 			loadout.specSkills(),
 			loadout.enhancements(),
-			null
+			stats
 		);
 	}
 

@@ -94,7 +94,7 @@ public final class DumpRunner {
 		FETCH_EXECUTOR.submit(() -> {
 			try {
 				List<MonumentaItemDefinition> items = MonumentaItemRepository.getItems();
-				if (items.isEmpty()) {
+				if (items == null || items.isEmpty()) {
 					feedback.accept(Component.literal("No Monumenta items loaded (API unreachable and no cache); aborting."));
 					return;
 				}

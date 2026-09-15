@@ -27,19 +27,44 @@ public final class MonumentaItemRepository {
 		.getConfigDir()
 		.resolve("sparethesympathy")
 		.resolve("monumenta-items-cache.json");
+	// Transient API failures are retried before falling back to the disk
+	// cache; a failed fetch is never cached in place of a retry.
+	private static final int FETCH_ATTEMPTS = 3;
+	private static final long FETCH_RETRY_DELAY_MS = 2_000;
 
 	private MonumentaItemRepository() {
 	}
 
+	/**
+	 * The Monumenta item dictionary: fresh from the API when reachable,
+	 * otherwise the last cached response. Returns {@code null} when both the
+	 * API (after retries) and the cache fail, so callers can retry later
+	 * instead of treating an empty dictionary as loaded.
+	 */
 	public static List<MonumentaItemDefinition> getItems() {
-		try {
-			String response = fetchRemoteJson();
-			writeCache(response);
-			List<MonumentaItemDefinition> items = parseItems(response);
-			SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items from API", items.size());
-			return items;
-		} catch (IOException | RuntimeException fetchFailure) {
-			SpareTheSympathy.LOGGER.warn("Failed to fetch Monumenta items from API, trying cache", fetchFailure);
+		for (int attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+			try {
+				String response = fetchRemoteJson();
+				writeCache(response);
+				List<MonumentaItemDefinition> items = parseItems(response);
+				SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items from API", items.size());
+				return items;
+			} catch (IOException | RuntimeException fetchFailure) {
+				SpareTheSympathy.LOGGER.warn(
+					"Monumenta items API attempt {}/{} failed: {}",
+					attempt,
+					FETCH_ATTEMPTS,
+					fetchFailure.toString()
+				);
+				if (attempt < FETCH_ATTEMPTS) {
+					try {
+						Thread.sleep(FETCH_RETRY_DELAY_MS);
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						break;
+					}
+				}
+			}
 		}
 
 		try {
@@ -52,7 +77,7 @@ public final class MonumentaItemRepository {
 			SpareTheSympathy.LOGGER.error("Failed to read Monumenta cache", cacheFailure);
 		}
 
-		return List.of();
+		return null;
 	}
 
 	private static String fetchRemoteJson() throws IOException {

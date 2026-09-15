@@ -32,4 +32,25 @@ class StsConfigTest {
 		assertEquals(-400, StsConfig.clampOffset(-9999));
 		assertEquals(-37, StsConfig.clampOffset(-37));
 	}
+
+	@Test
+	void buildStealerMessageDefaultsWhenBlank() {
+		assertEquals(StsConfig.DEFAULT_BUILD_STEALER_MESSAGE, StsConfig.normalizeBuildStealerMessage(null));
+		assertEquals(StsConfig.DEFAULT_BUILD_STEALER_MESSAGE, StsConfig.normalizeBuildStealerMessage(""));
+		assertEquals(StsConfig.DEFAULT_BUILD_STEALER_MESSAGE, StsConfig.normalizeBuildStealerMessage("   "));
+		assertEquals(StsConfig.DEFAULT_BUILD_STEALER_MESSAGE, StsConfig.normalizeBuildStealerMessage("/"));
+	}
+
+	@Test
+	void buildStealerMessageIsSingleLineAndTrimmed() {
+		assertEquals("just stole your build!", StsConfig.normalizeBuildStealerMessage("  just stole your build!  "));
+		assertEquals("you got robbed!", StsConfig.normalizeBuildStealerMessage("you got\nrobbed!"));
+		assertEquals("nice build", StsConfig.normalizeBuildStealerMessage("/nice build"));
+	}
+
+	@Test
+	void buildStealerMessageIsCapped() {
+		String longMessage = "x".repeat(StsConfig.BUILD_STEALER_MESSAGE_MAX + 50);
+		assertEquals(StsConfig.BUILD_STEALER_MESSAGE_MAX, StsConfig.normalizeBuildStealerMessage(longMessage).length());
+	}
 }

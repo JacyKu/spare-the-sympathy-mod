@@ -63,6 +63,7 @@ public final class ArmouryLoadoutReader {
 		List<BuildTokenEncoder.Skill> specSkills,
 		List<String> enhancements,
 		java.util.Map<String, String> delveInfusions,
+		java.util.Map<String, sts.mod.api.InfusionReader.BasicInfusion> basicInfusions,
 		List<JsonObject> unknownItemPayloads
 	) {
 	}
@@ -163,11 +164,14 @@ public final class ArmouryLoadoutReader {
 			}
 		}
 
-		// Delve infusion preferences: each equipment icon's lore carries
-		// "Preferred Delve Infusion: Y" ("any" means no preference). These
-		// ride along with the save so the builder's infusion dropdown shows
-		// them.
+		// Infusions: the equipment icons carry the real item lore, so the
+		// applied delve infusion and the basic (normal) infusion can be read
+		// from the same tooltips the /ps view uses. When an item has no delve
+		// infusion applied, fall back to its "Preferred Delve Infusion: Y"
+		// line ("any" means no preference) so the builder's dropdowns still
+		// show the player's preference.
 		java.util.Map<String, String> delveInfusions = new java.util.LinkedHashMap<>();
+		java.util.Map<String, sts.mod.api.InfusionReader.BasicInfusion> basicInfusions = new java.util.LinkedHashMap<>();
 		Player player = Minecraft.getInstance().player;
 		for (int i = 0; i < 6; i++) {
 			ItemStack stack = menu.slots.get(resolvedSlots[i]).getItem();
@@ -175,6 +179,15 @@ public final class ArmouryLoadoutReader {
 				continue;
 			}
 			String slotName = SLOT_NAMES[i];
+			sts.mod.api.InfusionReader.BasicInfusion basic = sts.mod.api.InfusionReader.basicInfusionOn(stack, player);
+			if (basic != null) {
+				basicInfusions.put(slotName, basic);
+			}
+			String applied = sts.mod.api.InfusionReader.delveInfusionOn(stack, player);
+			if (applied != null) {
+				delveInfusions.put(slotName, applied);
+				continue;
+			}
 			for (var line : stack.getTooltipLines(player, TooltipFlag.NORMAL)) {
 				String text = line.getString();
 				Matcher delve = PREFERRED_DELVE.matcher(text.trim());
@@ -252,7 +265,7 @@ public final class ArmouryLoadoutReader {
 			}
 		}
 
-		return new Loadout(name, itemKeys, charmKeys, className, specName, skills, specSkills, enhancements, delveInfusions, unknownItemPayloads);
+		return new Loadout(name, itemKeys, charmKeys, className, specName, skills, specSkills, enhancements, delveInfusions, basicInfusions, unknownItemPayloads);
 	}
 
 	// Matches an armoury icon back to a dictionary entry by vanilla base item +

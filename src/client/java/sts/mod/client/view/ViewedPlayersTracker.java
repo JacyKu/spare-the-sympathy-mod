@@ -16,6 +16,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import sts.mod.SpareTheSympathy;
 import sts.mod.api.BuildTokenEncoder;
+import sts.mod.api.InfusionReader;
 import sts.mod.api.ItemUploader;
 import sts.mod.api.MonumentaItemDefinition;
 import sts.mod.api.StsApiClient;
@@ -57,6 +58,11 @@ public final class ViewedPlayersTracker {
 	private static ViewedPlayers.Pending activePending;
 	private static ViewedPlayers.Kind activeKind;
 	private static String activeName;
+	// /ps lays the viewer's gear on the left and the requested player's on the
+	// right; kept per open screen so parsing survives the command target
+	// ageing out (browsing a GUI can take longer than the pending TTL).
+	private static boolean activeStatsRight;
+	private static boolean abilitiesLogged;
 
 	private ViewedPlayersTracker() {
 	}
@@ -69,6 +75,8 @@ public final class ViewedPlayersTracker {
 			activePending = null;
 			activeKind = null;
 			activeName = null;
+			activeStatsRight = false;
+			abilitiesLogged = false;
 		}
 		if (!(screen instanceof ContainerScreen container)) {
 			return;
@@ -87,10 +95,17 @@ public final class ViewedPlayersTracker {
 
 		if (kind == ViewedPlayers.Kind.STATS) {
 			ArmouryTracker.ensureItemsAndClasses();
-			parseStats(menu);
+			// Resolve which side is the requested player while the command
+			// target is fresh; parsing then keeps working for as long as the
+			// screen stays open.
+			ViewedPlayers.Pending pendingStats = pending(ViewedPlayers.Kind.STATS);
+			if (pendingStats != null) {
+				activeStatsRight = pendingStats.right() != null && pendingStats.right().equals(activeName);
+			}
+			parseStats(menu, activeName, activeStatsRight);
 		} else if (kind == ViewedPlayers.Kind.ABILITIES) {
 			ArmouryTracker.ensureItemsAndClasses();
-			parseAbilities(menu);
+			parseAbilities(menu, activeName);
 		} else {
 			ArmouryTracker.ensureItemsAndClasses();
 			parseCharms(menu, activeName);
@@ -200,9 +215,8 @@ public final class ViewedPlayersTracker {
 
 	// ---------- /ps: equipment ----------
 
-	private static void parseStats(AbstractContainerMenu menu) {
-		ViewedPlayers.Pending pending = pending(ViewedPlayers.Kind.STATS);
-		if (pending == null) {
+	private static void parseStats(AbstractContainerMenu menu, String player, boolean rightSide) {
+		if (player == null) {
 			return;
 		}
 		List<MonumentaItemDefinition> items = ArmouryTracker.items();
@@ -211,28 +225,35 @@ public final class ViewedPlayersTracker {
 			// every icon as an unknown item.
 			return;
 		}
-		if (pending.left() != null) {
-			mergeEquipment(pending.left(), menu, STATS_LEFT_SLOTS, items);
-		}
-		if (pending.right() != null) {
-			mergeEquipment(pending.right(), menu, STATS_RIGHT_SLOTS, items);
+		String self = selfName();
+		if (rightSide) {
+			// Viewing another player: their gear is the right set, the
+			// viewer's own (when it is not the same player) is the left one.
+			mergeEquipment(player, menu, STATS_RIGHT_SLOTS, items);
+			if (self != null && !self.equalsIgnoreCase(player)) {
+				mergeEquipment(self, menu, STATS_LEFT_SLOTS, items);
+			}
+		} else {
+			mergeEquipment(player, menu, STATS_LEFT_SLOTS, items);
 		}
 		int region = parseRegion(menu.slots.get(4).getItem());
 		if (region > 0) {
-			if (pending.left() != null) {
-				ViewedPlayers.cache(pending.left()).mergeRegion(region);
-			}
-			if (pending.right() != null) {
-				ViewedPlayers.cache(pending.right()).mergeRegion(region);
+			ViewedPlayers.cache(player).mergeRegion(region);
+			if (rightSide && self != null && !self.equalsIgnoreCase(player)) {
+				ViewedPlayers.cache(self).mergeRegion(region);
 			}
 		}
-		if (activeName != null) {
-			ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(activeName);
-			if (cached.hasEquipment()) {
-				cached.markViewed(ViewedPlayers.Kind.STATS);
-				notifyCached(cached, ViewedPlayers.Kind.STATS, activeName);
-			}
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(player);
+		if (cached.hasEquipment()) {
+			cached.markViewed(ViewedPlayers.Kind.STATS);
+			notifyCached(cached, ViewedPlayers.Kind.STATS, player);
 		}
+	}
+
+	/** The viewing player's own name (for the /ps left set). */
+	private static String selfName() {
+		Minecraft mc = Minecraft.getInstance();
+		return mc.player != null ? mc.player.getGameProfile().getName() : null;
 	}
 
 	private static void mergeEquipment(
@@ -244,7 +265,7 @@ public final class ViewedPlayersTracker {
 		String[] keys = new String[6];
 		List<JsonObject> unknown = new ArrayList<>();
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>();
-		java.util.Map<String, ViewedPlayers.BasicInfusion> basicInfusions = new java.util.LinkedHashMap<>();
+		java.util.Map<String, InfusionReader.BasicInfusion> basicInfusions = new java.util.LinkedHashMap<>();
 		Minecraft mc = Minecraft.getInstance();
 		for (int i = 0; i < 6; i++) {
 			ItemStack stack = menu.slots.get(slots[i]).getItem();
@@ -252,11 +273,11 @@ public final class ViewedPlayersTracker {
 				keys[i] = "None";
 				continue;
 			}
-			String infusion = infusionOnItem(stack, mc);
+			String infusion = InfusionReader.delveInfusionOn(stack, mc.player);
 			if (infusion != null) {
 				infusions.put(SLOT_NAMES[i], infusion);
 			}
-			ViewedPlayers.BasicInfusion basic = basicInfusionOnItem(stack, mc);
+			InfusionReader.BasicInfusion basic = InfusionReader.basicInfusionOn(stack, mc.player);
 			if (basic != null) {
 				basicInfusions.put(SLOT_NAMES[i], basic);
 			}
@@ -283,98 +304,6 @@ public final class ViewedPlayersTracker {
 
 	/** Equipment slot names in the builder's order. */
 	private static final String[] SLOT_NAMES = { "mainhand", "offhand", "helmet", "chestplate", "leggings", "boots" };
-
-	/**
-	 * Delve infusions applied to an item, read from its tooltip (the plugin
-	 * adds them as "<Name> <Roman level>" lore lines, e.g. "Pennate IV").
-	 * Only the delve set is considered - the stat infusions (Acumen, ...) use
-	 * the same format but are not part of a build link.
-	 */
-	private static String infusionOnItem(ItemStack stack, Minecraft mc) {
-		for (Component line : stack.getTooltipLines(mc.player, TooltipFlag.NORMAL)) {
-			String text = line.getString().trim();
-			if (text.isEmpty()) {
-				continue;
-			}
-			String first = text.split(" ")[0];
-			String display = DELVE_INFUSIONS.get(first.toLowerCase(Locale.ROOT));
-			if (display != null) {
-				return display;
-			}
-		}
-		return null;
-	}
-
-	/** Plugin display name per lowercased delve infusion name. */
-	private static final java.util.Map<String, String> DELVE_INFUSIONS = java.util.Map.ofEntries(
-		java.util.Map.entry("antigrav", "AntiGrav"),
-		java.util.Map.entry("ardor", "Ardor"),
-		java.util.Map.entry("aura", "Aura"),
-		java.util.Map.entry("bloodlust", "Bloodlust"),
-		java.util.Map.entry("carapace", "Carapace"),
-		java.util.Map.entry("celerity", "Celerity"),
-		java.util.Map.entry("celestial", "Celestial"),
-		java.util.Map.entry("choler", "Choler"),
-		java.util.Map.entry("decapitation", "Decapitation"),
-		java.util.Map.entry("empowered", "Empowered"),
-		java.util.Map.entry("energize", "Energize"),
-		java.util.Map.entry("epoch", "Epoch"),
-		java.util.Map.entry("execution", "Execution"),
-		java.util.Map.entry("expedite", "Expedite"),
-		java.util.Map.entry("fervor", "Fervor"),
-		java.util.Map.entry("fueled", "Fueled"),
-		java.util.Map.entry("galvanic", "Galvanic"),
-		java.util.Map.entry("grace", "Grace"),
-		java.util.Map.entry("mitosis", "Mitosis"),
-		java.util.Map.entry("natant", "Natant"),
-		java.util.Map.entry("nutriment", "Nutriment"),
-		java.util.Map.entry("orbital", "Orbital"),
-		java.util.Map.entry("pennate", "Pennate"),
-		java.util.Map.entry("quench", "Quench"),
-		java.util.Map.entry("reflection", "Reflection"),
-		java.util.Map.entry("refresh", "Refresh"),
-		java.util.Map.entry("soothing", "Soothing"),
-		java.util.Map.entry("sturdy", "Sturdy"),
-		java.util.Map.entry("understanding", "Understanding"),
-		java.util.Map.entry("unyielding", "Unyielding"),
-		java.util.Map.entry("usurper", "Usurper"),
-		java.util.Map.entry("vengeful", "Vengeful")
-	);
-
-	/** Plugin display name per lowercased basic (normal) infusion name. */
-	private static final java.util.Map<String, String> BASIC_INFUSIONS = java.util.Map.of(
-		"tenacity", "Tenacity",
-		"vitality", "Vitality",
-		"vigor", "Vigor",
-		"focus", "Focus",
-		"perspicacity", "Perspicacity",
-		"acumen", "Acumen"
-	);
-
-	private static final java.util.Map<String, Integer> ROMAN_LEVELS = java.util.Map.of(
-		"i", 1,
-		"ii", 2,
-		"iii", 3,
-		"iv", 4
-	);
-
-	/** The basic infusion applied to an item, from its "&lt;Name&gt; &lt;Roman&gt;" lore line. */
-	private static ViewedPlayers.BasicInfusion basicInfusionOnItem(ItemStack stack, Minecraft mc) {
-		for (Component line : stack.getTooltipLines(mc.player, TooltipFlag.NORMAL)) {
-			String text = line.getString().trim();
-			if (text.isEmpty()) {
-				continue;
-			}
-			String[] parts = text.split(" ");
-			String display = BASIC_INFUSIONS.get(parts[0].toLowerCase(Locale.ROOT));
-			if (display == null) {
-				continue;
-			}
-			int level = parts.length > 1 ? ROMAN_LEVELS.getOrDefault(parts[1].toLowerCase(Locale.ROOT), 1) : 1;
-			return new ViewedPlayers.BasicInfusion(display, level);
-		}
-		return null;
-	}
 
 	/** Empty-slot icons in the stats GUI ("Main Hand Slot" item frames). */
 	private static boolean isStatsPlaceholder(ItemStack stack) {
@@ -404,16 +333,23 @@ public final class ViewedPlayersTracker {
 	private record AbilityRef(String className, String specName, String scoreboardId) {
 	}
 
-	private static void parseAbilities(AbstractContainerMenu menu) {
-		ViewedPlayers.Pending pending = pending(ViewedPlayers.Kind.ABILITIES);
-		if (pending == null || pending.left() == null) {
+	private static void parseAbilities(AbstractContainerMenu menu, String player) {
+		if (player == null) {
 			return;
 		}
 		List<StsApiClient.GameClass> classes = ArmouryTracker.classes();
 		if (classes.isEmpty()) {
+			if (!abilitiesLogged) {
+				abilitiesLogged = true;
+				SpareTheSympathy.LOGGER.warn(
+					"[sts] /pa {}: skill catalog not loaded yet (site: {}) - abilities cannot be cached",
+					player,
+					StsApiClient.siteUrl()
+				);
+			}
 			return;
 		}
-		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(pending.left());
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.cache(player);
 
 		// The class page shows every class; the player's own class is the only
 		// non-barrier icon (several non-barriers = no class chosen).
@@ -479,7 +415,7 @@ public final class ViewedPlayersTracker {
 				SpareTheSympathy.LOGGER.info(
 					"[sts] Ability icon '{}' is not in the skill catalog while caching {}",
 					stack.getHoverName().getString().trim(),
-					pending.left()
+					player
 				);
 				continue;
 			}
@@ -522,7 +458,19 @@ public final class ViewedPlayersTracker {
 		}
 		if (cached.hasAbilities()) {
 			cached.markViewed(ViewedPlayers.Kind.ABILITIES);
-			notifyCached(cached, ViewedPlayers.Kind.ABILITIES, activeName != null ? activeName : pending.left());
+			notifyCached(cached, ViewedPlayers.Kind.ABILITIES, player);
+			if (!abilitiesLogged) {
+				abilitiesLogged = true;
+				SpareTheSympathy.LOGGER.info(
+					"[sts] /pa {}: class={} spec={} skills={} specSkills={} enhancements={}",
+					player,
+					cached.className(),
+					cached.spec(),
+					cached.skills().size(),
+					cached.specSkills().size(),
+					cached.enhancements().size()
+				);
+			}
 		}
 	}
 

@@ -7,12 +7,12 @@ import java.util.List;
 
 /**
  * Encodes a build into the site's compact binary {@code v1_} token format.
- * The mod emits version 6; the site's current version 7 shares the same
- * layout. This is a faithful Java port of the encoder half of
+ * The mod emits version 7, the site's current token version. This is a
+ * faithful Java port of the encoder half of
  * {@code apps/sts/app/_src/utils/builder/buildUrlCodec.js}: byte-for-byte the
  * same layout, the same FNV-1a over UTF-16 code units, the same base64url.
  * <p>
- * Layout: {@code [version=6][6x FNV-1a32 item key, little endian]}
+ * Layout: {@code [version=7][6x FNV-1a32 item key, little endian]}
  * {@code [varint charmLen][charm][varint nameLen][name][varint classLen][class]}
  * {@code [varint skillCount][(varint idLen, id, points)*]}
  * {@code [6 stat bytes (tenacity, vitality, vigor, focus, perspicacity, region)]}
@@ -21,7 +21,7 @@ import java.util.List;
  */
 public final class BuildTokenEncoder {
 	private static final String PREFIX = "v1_";
-	private static final int VERSION = 6;
+	private static final int VERSION = 7;
 	private static final String NONE = "None";
 
 	private BuildTokenEncoder() {

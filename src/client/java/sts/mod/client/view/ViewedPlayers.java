@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import sts.mod.SpareTheSympathy;
 import sts.mod.api.BuildTokenEncoder;
+import sts.mod.api.InfusionReader;
 import sts.mod.client.armoury.ArmouryTracker;
 
 /**
@@ -80,9 +81,22 @@ public final class ViewedPlayers {
 					right = null;
 				}
 				pending = new Pending(Kind.STATS, left, right, now);
+				// Remember the command targets right away: the name list for
+				// /sts export_build suggestions should update even before (or
+				// without) a successful GUI parse.
+				cache(left);
+				cache(right);
 			}
-			case "pa", "playerabilities" -> pending = new Pending(Kind.ABILITIES, argumentOrSelf(parts, 1), null, now);
-			case "vc", "viewcharms" -> pending = new Pending(Kind.CHARMS, argumentOrSelf(parts, 1), null, now);
+			case "pa", "playerabilities" -> {
+				String target = argumentOrSelf(parts, 1);
+				pending = new Pending(Kind.ABILITIES, target, null, now);
+				cache(target);
+			}
+			case "vc", "viewcharms" -> {
+				String target = argumentOrSelf(parts, 1);
+				pending = new Pending(Kind.CHARMS, target, null, now);
+				cache(target);
+			}
 			default -> {
 				// Not a view command; leave any pending target alone.
 			}
@@ -157,7 +171,7 @@ public final class ViewedPlayers {
 	 */
 	public static void export(String playerName, String buildName) {
 		CachedPlayer player = get(playerName);
-		if (player == null) {
+		if (player == null || player.isEmpty()) {
 			ArmouryTracker.showMessage(
 				"Nothing cached for " + playerName + " - view them with /ps, /pa or /vc first."
 			);
@@ -168,7 +182,9 @@ public final class ViewedPlayers {
 			return;
 		}
 		String token = buildToken(player, name);
-		ArmouryTracker.showMessage("Generating " + player.name() + "'s build link as \"" + name + "\"...");
+		ArmouryTracker.showMessage(
+			"Generating " + player.name() + "'s build link as \"" + name + "\"..." + missingAbilitiesHint(player)
+		);
 		ArmouryTracker.saveTokenAnonymously(name, token, player.delveInfusions(), basicInfusionsJson(player), true);
 	}
 
@@ -179,7 +195,7 @@ public final class ViewedPlayers {
 	 */
 	public static void upload(String playerName, String buildName) {
 		CachedPlayer player = get(playerName);
-		if (player == null) {
+		if (player == null || player.isEmpty()) {
 			ArmouryTracker.showMessage(
 				"Nothing cached for " + playerName + " - view them with /ps, /pa or /vc first."
 			);
@@ -194,20 +210,31 @@ public final class ViewedPlayers {
 		for (JsonObject payload : player.unknownItems()) {
 			unknownItems.add(payload);
 		}
-		ArmouryTracker.showMessage("Uploading " + player.name() + "'s cached build as \"" + name + "\"...");
+		ArmouryTracker.showMessage(
+			"Uploading " + player.name() + "'s cached build as \"" + name + "\"..." + missingAbilitiesHint(player)
+		);
 		ArmouryTracker.saveToken(name, token, player.delveInfusions(), unknownItems, basicInfusionsJson(player), true);
+	}
+
+	/**
+	 * A warning suffix for upload/export messages when the build is missing
+	 * the parts that come from the /pa view, or the skill catalog itself.
+	 */
+	private static String missingAbilitiesHint(CachedPlayer player) {
+		boolean hasClass = player.className() != null && !player.className().isEmpty();
+		boolean hasSkills = !player.skills().isEmpty() || !player.specSkills().isEmpty();
+		if (hasClass && hasSkills) {
+			return "";
+		}
+		if (ArmouryTracker.classes().isEmpty()) {
+			return " (no class/skills: the site's skill catalog isn't loaded - check the site URL and that it is running)";
+		}
+		return " (no class/skills cached: open /pa " + player.name() + " and browse their skill page first)";
 	}
 
 	/** Per-slot basic infusions as the site's state shape. */
 	private static JsonObject basicInfusionsJson(CachedPlayer player) {
-		JsonObject object = new JsonObject();
-		for (Map.Entry<String, BasicInfusion> entry : player.basicInfusions().entrySet()) {
-			JsonObject value = new JsonObject();
-			value.addProperty("name", entry.getValue().name());
-			value.addProperty("level", entry.getValue().level());
-			object.add(entry.getKey(), value);
-		}
-		return object;
+		return InfusionReader.basicInfusionsJson(player.basicInfusions());
 	}
 
 	/** Trimmed/limited build name, or null (with a usage hint) when blank. */
@@ -234,7 +261,7 @@ public final class ViewedPlayers {
 		int vigor = 0;
 		int focus = 0;
 		int perspicacity = 0;
-		for (BasicInfusion infusion : player.basicInfusions().values()) {
+		for (InfusionReader.BasicInfusion infusion : player.basicInfusions().values()) {
 			switch (infusion.name().toLowerCase(Locale.ROOT)) {
 				case "tenacity" -> tenacity += infusion.level();
 				case "vitality" -> vitality += infusion.level();
@@ -260,10 +287,6 @@ public final class ViewedPlayers {
 		);
 	}
 
-	/** One basic (normal) infusion applied to an item. */
-	public record BasicInfusion(String name, int level) {
-	}
-
 	/** One player's captured build pieces; fields only change when new data arrives. */
 	public static final class CachedPlayer {
 		private final String name;
@@ -277,7 +300,7 @@ public final class ViewedPlayers {
 		private volatile List<String> enhancements = List.of();
 		private volatile int region = 3;
 		private volatile Map<String, String> delveInfusions = Map.of();
-		private volatile Map<String, BasicInfusion> basicInfusions = Map.of();
+		private volatile Map<String, InfusionReader.BasicInfusion> basicInfusions = Map.of();
 		private volatile long updatedAt;
 		// Which view GUIs have been parsed for this player, and which have
 		// already produced a "Cached ..." notification.
@@ -334,7 +357,7 @@ public final class ViewedPlayers {
 		}
 
 		/** Basic (normal) infusions by equipment slot (mainhand..boots). */
-		public Map<String, BasicInfusion> basicInfusions() {
+		public Map<String, InfusionReader.BasicInfusion> basicInfusions() {
 			return basicInfusions;
 		}
 
@@ -493,11 +516,12 @@ public final class ViewedPlayers {
 		}
 
 		/** Adds/updates the basic (normal) infusions seen on the tooltips. */
-		void mergeBasicInfusions(Map<String, BasicInfusion> infusions) {
+		void mergeBasicInfusions(Map<String, InfusionReader.BasicInfusion> infusions) {
 			if (infusions == null || infusions.isEmpty()) {
 				return;
 			}
-			java.util.LinkedHashMap<String, BasicInfusion> merged = new java.util.LinkedHashMap<>(this.basicInfusions);
+			java.util.LinkedHashMap<String, InfusionReader.BasicInfusion> merged =
+				new java.util.LinkedHashMap<>(this.basicInfusions);
 			merged.putAll(infusions);
 			this.basicInfusions = java.util.Collections.unmodifiableMap(merged);
 			this.updatedAt = System.currentTimeMillis();
