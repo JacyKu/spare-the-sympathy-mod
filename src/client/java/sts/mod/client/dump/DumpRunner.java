@@ -100,7 +100,7 @@ public final class DumpRunner {
 				}
 				minecraft.execute(() -> {
 					PENDING = new PendingDump(resolved, items, feedback);
-					feedback.accept(Component.literal("Rendering " + items.size() + " Monumenta item icons (build 20260824h)..."));
+					feedback.accept(Component.literal("Rendering " + items.size() + " Monumenta item icons..."));
 				});
 			} catch (Throwable throwable) {
 				feedback.accept(Component.literal("Failed to fetch Monumenta items: " + throwable));
@@ -125,13 +125,9 @@ public final class DumpRunner {
 
 	private static void renderItems(PendingDump pending) {
 		try {
-			SpareTheSympathy.LOGGER.info("[dump] build tag 20260826a");
-			runSelfTest(pending.outputDir);
 			IconRenderer iconRenderer = new IconRenderer();
 			List<MonumentaItemDefinition> heads = new ArrayList<>();
 			int animatedCount = 0;
-			boolean wroteStaticDebug = false;
-			boolean wroteAnimDebug = false;
 
 			// Warm-up pass: render every item once, discarded. CIT item models
 			// and textures (the Monumenta pack's optifine/cit entries) load
@@ -161,7 +157,6 @@ public final class DumpRunner {
 					missingno = FrameItemModel.containsMissingno(model);
 					if (missingno) {
 						model = FrameItemModel.withoutMissingno(model);
-						SpareTheSympathy.LOGGER.info("[dump] dropped missingno quads for '{}'", definition.key());
 					}
 					capture = AnimatedIconRenderer.capture(stack, iconRenderer, model);
 				} catch (Throwable throwable) {
@@ -188,19 +183,6 @@ public final class DumpRunner {
 				// async model load has finished.
 				boolean retry = missingno || inconsistentFrames(capture.frames());
 				pending.rendered.add(new RenderedItem(definition.key(), capture.frames(), capture.dwells(), capture.texturePath(), capture.animated(), retry));
-				if (!wroteStaticDebug && !capture.animated()) {
-					IconRenderer.writeDebugPng(pending.outputDir.resolve("debug-static.png").toString(), capture.frames().get(0), IconRenderer.CAPTURE_SIZE);
-					SpareTheSympathy.LOGGER.info("[dump] static debug: opaque={} firstPixels={}", opaqueCount(capture.frames().get(0)), firstPixels(capture.frames().get(0)));
-					wroteStaticDebug = true;
-				}
-				if (!wroteAnimDebug && capture.animated()) {
-					IconRenderer.writeDebugPng(pending.outputDir.resolve("debug-anim-0.png").toString(), capture.frames().get(0), IconRenderer.CAPTURE_SIZE);
-					if (capture.frames().size() > 1) {
-						IconRenderer.writeDebugPng(pending.outputDir.resolve("debug-anim-1.png").toString(), capture.frames().get(1), IconRenderer.CAPTURE_SIZE);
-					}
-					SpareTheSympathy.LOGGER.info("[dump] anim debug: {} frames opaque0={} opaque1={}", capture.frames().size(), opaqueCount(capture.frames().get(0)), capture.frames().size() > 1 ? opaqueCount(capture.frames().get(1)) : -1);
-					wroteAnimDebug = true;
-				}
 				if (isPlayerHead(stack)) {
 					heads.add(definition);
 				}
@@ -209,7 +191,6 @@ public final class DumpRunner {
 				}
 			}
 			SpareTheSympathy.LOGGER.info("Rendered {} icons ({} animated), {} player heads pending retry", pending.rendered.size(), animatedCount, heads.size());
-			writeSpriteDiagnostics(pending.outputDir, pending.items);
 
 			Set<String> retryKeys = new HashSet<>(heads.stream().map(MonumentaItemDefinition::key).toList());
 			for (RenderedItem item : pending.rendered) {
@@ -321,44 +302,6 @@ public final class DumpRunner {
 		}
 	}
 
-	/** Writes one line per item listing its model sprites and their animation state. */
-	private static void writeSpriteDiagnostics(Path outputDir, List<MonumentaItemDefinition> items) {
-		try {
-			Minecraft minecraft = Minecraft.getInstance();
-			StringBuilder log = new StringBuilder(items.size() * 100);
-			for (MonumentaItemDefinition definition : items) {
-				ItemStack stack = cleanStack(MonumentaStackFactory.createStack(definition));
-				var model = minecraft.getItemRenderer().getModel(stack, null, null, 0);
-				List<String> sprites = new ArrayList<>();
-				for (var sprite : AnimatedIconRenderer.allSprites(model)) {
-					int frames = 0;
-					try {
-						frames = (int) sprite.contents().getUniqueFrames().count();
-					} catch (RuntimeException exception) {
-						frames = -1;
-					}
-					sprites.add(sprite.contents().name() + "@" + frames);
-				}
-				log.append(definition.key()).append(" || ").append(String.join(", ", sprites)).append('\n');
-			}
-			Files.writeString(outputDir.resolve("debug-sprites.log"), log.toString());
-			SpareTheSympathy.LOGGER.info("Wrote sprite diagnostics to {}", outputDir.resolve("debug-sprites.log"));
-		} catch (Throwable throwable) {
-			SpareTheSympathy.LOGGER.warn("Sprite diagnostics failed", throwable);
-		}
-	}
-
-	private static void runSelfTest(Path outputDir) {
-		try {
-			IconRenderer renderer = new IconRenderer();
-			int[] pixels = renderer.render(new ItemStack(net.minecraft.world.item.Items.DIAMOND));
-			IconRenderer.writeDebugPng(outputDir.resolve("debug-selftest.png").toString(), pixels, 16);
-			SpareTheSympathy.LOGGER.info("[selftest] diamond opaque={}/{}", opaqueCount(pixels), pixels.length);
-		} catch (Throwable throwable) {
-			SpareTheSympathy.LOGGER.warn("Self test failed", throwable);
-		}
-	}
-
 	private static int opaqueCount(int[] pixels) {
 		int count = 0;
 		for (int pixel : pixels) {
@@ -367,16 +310,5 @@ public final class DumpRunner {
 			}
 		}
 		return count;
-	}
-
-	private static String firstPixels(int[] pixels) {
-		StringBuilder builder = new StringBuilder();
-		for (int index = 0; index < Math.min(8, pixels.length); index++) {
-			if (builder.length() > 0) {
-				builder.append(' ');
-			}
-			builder.append(String.format("%08x", pixels[index]));
-		}
-		return builder.toString();
 	}
 }

@@ -1,7 +1,7 @@
 package sts.mod.client.dump;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import sts.mod.SpareTheSympathy;
+
 import sts.mod.sheet.CssWriter;
 import sts.mod.sheet.ManifestWriter;
 import sts.mod.sheet.SheetPacker;
@@ -36,7 +36,6 @@ public final class TextureSheetsWriter {
 				animated.add(fitToCell(item));
 			} else {
 				if (item.animated()) {
-					SpareTheSympathy.LOGGER.info("[dump] collapsed {} to static ({} identical frames)", item.key(), item.frames().size());
 					item = new DumpRunner.RenderedItem(item.key(), List.of(item.frames().get(0)), List.of(1), item.texturePath(), false, item.retry());
 				}
 				statics.add(fitToCell(item));

@@ -8,7 +8,7 @@ import sts.mod.api.StsConfig;
 @Config(name = "sparethesympathy")
 public class StsModConfig implements ConfigData {
 	@ConfigEntry.Gui.Tooltip
-	public String siteUrl = "http://localhost:3001";
+	public String siteUrl = StsConfig.DEFAULT_SITE_URL;
 
 	// Each armoury button anchors to the left or right edge of the Mechanical
 	// Armory window; x/y are offsets from that anchor. Ctrl+dragging a button

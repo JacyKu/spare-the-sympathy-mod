@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
-import sts.mod.SpareTheSympathy;
 import sts.mod.api.BuildTokenEncoder;
 import sts.mod.api.InfusionReader;
 import sts.mod.client.armoury.ArmouryTracker;
@@ -440,14 +439,12 @@ public final class ViewedPlayers {
 				if (this.className != null) {
 					this.className = null;
 					this.updatedAt = System.currentTimeMillis();
-					SpareTheSympathy.LOGGER.info("[sts] {} has no class", name);
 				}
 				return;
 			}
 			if (!className.equalsIgnoreCase(this.className == null ? "" : this.className)) {
 				this.className = className;
 				this.updatedAt = System.currentTimeMillis();
-				SpareTheSympathy.LOGGER.info("[sts] Cached class {} for {}", className, name);
 			}
 		}
 
@@ -457,14 +454,12 @@ public final class ViewedPlayers {
 				if (this.spec != null) {
 					this.spec = null;
 					this.updatedAt = System.currentTimeMillis();
-					SpareTheSympathy.LOGGER.info("[sts] {} has no spec", name);
 				}
 				return;
 			}
 			if (!spec.equalsIgnoreCase(this.spec == null ? "" : this.spec)) {
 				this.spec = spec;
 				this.updatedAt = System.currentTimeMillis();
-				SpareTheSympathy.LOGGER.info("[sts] Cached spec {} for {}", spec, name);
 			}
 		}
 
@@ -473,29 +468,20 @@ public final class ViewedPlayers {
 			List<BuildTokenEncoder.Skill> specSkills,
 			List<String> enhancements
 		) {
-			if (skills.isEmpty() && specSkills.isEmpty()) {
-				return;
-			}
-			boolean changed = !this.skills.equals(skills) || !this.specSkills.equals(specSkills);
-			if (!skills.isEmpty()) {
-				this.skills = List.copyOf(skills);
-			}
-			if (!specSkills.isEmpty()) {
-				this.specSkills = List.copyOf(specSkills);
-			}
-			if (!enhancements.isEmpty()) {
-				this.enhancements = List.copyOf(enhancements);
-			}
-			this.updatedAt = System.currentTimeMillis();
-			if (changed) {
-				SpareTheSympathy.LOGGER.info(
-					"[sts] Cached {} skill(s) and {} spec skill(s) for {}",
-					skills.size(),
-					specSkills.size(),
-					name
-				);
-			}
+		if (skills.isEmpty() && specSkills.isEmpty()) {
+			return;
 		}
+		if (!skills.isEmpty()) {
+			this.skills = List.copyOf(skills);
+		}
+		if (!specSkills.isEmpty()) {
+			this.specSkills = List.copyOf(specSkills);
+		}
+		if (!enhancements.isEmpty()) {
+			this.enhancements = List.copyOf(enhancements);
+		}
+		this.updatedAt = System.currentTimeMillis();
+	}
 
 		void mergeRegion(int region) {
 			if (region >= 1 && region <= 3) {

@@ -11,7 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Collects the sprites referenced by a model (for sizing and diagnostics). */
+	/** Collects the sprites referenced by a model (for sizing). */
 public final class TextureSpriteCollector {
 	public record SpriteRef(TextureAtlasSprite sprite) {
 		public net.minecraft.client.renderer.texture.SpriteContents contents() {

@@ -17,7 +17,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Vector3f;
-import sts.mod.SpareTheSympathy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,27 +144,8 @@ public final class FrameItemModel {
 		for (int index = 0; index < sprites.size(); index++) {
 			quads.addAll(generateQuads(sprites.get(index), frameCells[index]));
 		}
-		if (!quadDiagnostics) {
-			quadDiagnostics = true;
-			BakedQuad first = quads.get(0);
-			TextureAtlasSprite sprite = first.getSprite();
-			int[] v = first.getVertices();
-			StringBuilder sb = new StringBuilder();
-			for (int i = 0; i < 4; i++) {
-				sb.append("[")
-					.append(Float.intBitsToFloat(v[i * 8])).append(",")
-					.append(Float.intBitsToFloat(v[i * 8 + 1])).append(",")
-					.append(Float.intBitsToFloat(v[i * 8 + 2])).append(" u=")
-					.append(Float.intBitsToFloat(v[i * 8 + 4])).append(" v=")
-					.append(Float.intBitsToFloat(v[i * 8 + 5])).append("]");
-			}
-			SpareTheSympathy.LOGGER.info("[anim-debug] quad0 dir={} spriteRegion=u{}..{} v{}..{} verts={}",
-				first.getDirection(), sprite.getU0(), sprite.getU1(), sprite.getV0(), sprite.getV1(), sb);
-		}
 		return new FrameModel(quads, original);
 	}
-
-	private static boolean quadDiagnostics = false;
 
 	/** True for models built by {@link #forFrame} (flat per-frame quads). */
 	public static boolean isFrameModel(BakedModel model) {
@@ -272,26 +252,6 @@ public final class FrameItemModel {
 				}
 			}
 		}
-		if (spanDiagnostics && frame <= 8) {
-			int minX = width;
-			int minY = height;
-			int maxX = -1;
-			int maxY = -1;
-			for (int y = 0; y < height; y++) {
-				for (int x = 0; x < width; x++) {
-					if (isTransparent(contents, frame, x, y, width, height)) {
-						continue;
-					}
-					minX = Math.min(minX, x);
-					minY = Math.min(minY, y);
-					maxX = Math.max(maxX, x);
-					maxY = Math.max(maxY, y);
-				}
-			}
-			SpareTheSympathy.LOGGER.info("[anim-debug] frameModel sprite={} frame={} spans={} opaqueBounds={}x{}@({},{})",
-				contents.name(), frame, spans.size(), maxX - minX + 1, maxY - minY + 1, minX, minY);
-		}
-
 		float uScale = 16.0F / width;
 		float vScale = 16.0F / height;
 		FaceBakery faceBakery = new FaceBakery();
@@ -405,8 +365,6 @@ public final class FrameItemModel {
 		}
 		return contents.isTransparent(frame, x, y);
 	}
-
-	private static boolean spanDiagnostics = true;
 
 	private record FrameModel(List<BakedQuad> quads, BakedModel original) implements BakedModel {
 		@Override

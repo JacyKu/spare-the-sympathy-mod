@@ -47,4 +47,3 @@ The command fetches all items from the Monumenta API, renders each with its in-g
 ## Animated and oversized items
 
 The dump captures every frame of animated item textures into horizontal strips on a dedicated spritesheet (`sts-itemsheet-anim.png`, separate from the static sheet). The manifest records the per-frame dwell times (in ticks, 50 ms each), a per-entry `sheet` field, and frame 0 is also used as the static icon. Items whose icon extends beyond the 16-unit icon box (e.g. oversized models such as the Plate of Nessi) are re-captured at a wide projection and cropped to their content bounds, with the resulting cell size recorded in the manifest (`w`/`h`).
-wwwwwwwwwwwwwwwwww

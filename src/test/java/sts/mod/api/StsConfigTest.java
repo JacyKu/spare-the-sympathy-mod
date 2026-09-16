@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StsConfigTest {
 	@Test
-	void defaultsToLocalhost3001() {
-		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl(null));
-		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl(""));
-		assertEquals("http://localhost:3001", StsConfig.normalizeSiteUrl("   "));
+	void defaultsToTheLiveSite() {
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl(null));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl(""));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("   "));
 	}
 
 	@Test

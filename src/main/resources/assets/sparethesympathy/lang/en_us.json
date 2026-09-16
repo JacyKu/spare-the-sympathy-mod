@@ -14,7 +14,7 @@
 	"text.autoconfig.sparethesympathy.title": "Spare the Sympathy Config",
 	"text.autoconfig.sparethesympathy.category.default": "Settings",
 	"text.autoconfig.sparethesympathy.option.siteUrl": "Site URL",
-	"text.autoconfig.sparethesympathy.option.siteUrl.@Tooltip": "Base URL of the STS site (no trailing slash). Defaults to the local dev server.",
+	"text.autoconfig.sparethesympathy.option.siteUrl.@Tooltip": "Base URL of the STS site (no trailing slash). Defaults to https://sts.deepa.cat",
 
 	"text.autoconfig.sparethesympathy.option.exportOnLeft": "Export Link on left",
 	"text.autoconfig.sparethesympathy.option.exportOnLeft.@Tooltip": "Anchor the Export Link button to the left side of the inventory window instead of the right.",

@@ -412,11 +412,6 @@ public final class ViewedPlayersTracker {
 			}
 			AbilityRef ref = byName.get(normalize(stack.getHoverName().getString()));
 			if (ref == null) {
-				SpareTheSympathy.LOGGER.info(
-					"[sts] Ability icon '{}' is not in the skill catalog while caching {}",
-					stack.getHoverName().getString().trim(),
-					player
-				);
 				continue;
 			}
 			// Browsing another class or spec in the read-only GUI must not
@@ -459,18 +454,6 @@ public final class ViewedPlayersTracker {
 		if (cached.hasAbilities()) {
 			cached.markViewed(ViewedPlayers.Kind.ABILITIES);
 			notifyCached(cached, ViewedPlayers.Kind.ABILITIES, player);
-			if (!abilitiesLogged) {
-				abilitiesLogged = true;
-				SpareTheSympathy.LOGGER.info(
-					"[sts] /pa {}: class={} spec={} skills={} specSkills={} enhancements={}",
-					player,
-					cached.className(),
-					cached.spec(),
-					cached.skills().size(),
-					cached.specSkills().size(),
-					cached.enhancements().size()
-				);
-			}
 		}
 	}
 

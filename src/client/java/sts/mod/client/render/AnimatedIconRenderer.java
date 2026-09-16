@@ -79,16 +79,11 @@ public final class AnimatedIconRenderer {
 			return staticCapture(iconRenderer, stack, model);
 		}
 
-		logQuadUvs(stack, model, sprites);
-
 		// Flat items (builtin/generated models) render with a silhouette baked
 		// from ALL frames at once, so per-frame artwork that moves positionally
 		// looks frozen/stray. Rebuild the flat model from each frame's own
 		// pixels instead, so the artwork sweeps to its true position.
 		boolean flatItem = FrameItemModel.isFlatItem(stack, model);
-		if (flatItem) {
-			SpareTheSympathy.LOGGER.info("[anim-debug] flat per-frame model for {}", stack.getHoverName().getString());
-		}
 
 		try {
 			List<int[]> frames = new ArrayList<>(playback.size());
@@ -123,16 +118,6 @@ public final class AnimatedIconRenderer {
 					frames.add(iconRenderer.render(stack, frameModel));
 				} else {
 					frames.add(iconRenderer.render(stack, model));
-				}
-				if (flatItem && frameIndex < 8) {
-					int opaque = 0;
-					for (int pixel : frames.get(frames.size() - 1)) {
-						if ((pixel >>> 24) > 0) {
-							opaque++;
-						}
-					}
-					SpareTheSympathy.LOGGER.info("[anim-debug] frameCapture key={} idx={} cells={} opaque={}",
-						stack.getHoverName().getString(), frameIndex, java.util.Arrays.toString(cells), opaque);
 				}
 				dwells.add(frameTimeOf(playback.get(frameIndex)));
 			}
@@ -176,7 +161,7 @@ public final class AnimatedIconRenderer {
 		return sprites;
 	}
 
-	/** All sprites referenced by the model (for diagnostics). */
+	/** All sprites referenced by the model. */
 	public static List<TextureAtlasSprite> allSprites(BakedModel model) {
 		List<TextureAtlasSprite> sprites = new ArrayList<>();
 		for (Direction direction : Direction.values()) {
@@ -233,56 +218,6 @@ public final class AnimatedIconRenderer {
 			SpareTheSympathy.LOGGER.warn("Failed to access animated frames field", exception);
 		}
 		return null;
-	}
-
-	/** AnimatedTexture.uploadFrame(int x, int y, int cellIndex), by signature. */
-	private static void logQuadUvs(ItemStack stack, BakedModel model, List<TextureAtlasSprite> animatedSprites) {
-		String key = stack.getHoverName().getString();
-		boolean interesting = key.contains("Parter") || key.contains("Exiled") || key.contains("Sword of the");
-		if (!interesting && animatedUvLogged++ > 8) {
-			return;
-		}
-		try {
-			StringBuilder log = new StringBuilder();
-			for (Direction direction : Direction.values()) {
-				for (BakedQuad quad : model.getQuads(null, direction, RANDOM)) {
-					appendQuadUv(log, quad);
-				}
-			}
-			for (BakedQuad quad : model.getQuads(null, null, RANDOM)) {
-				appendQuadUv(log, quad);
-			}
-			StringBuilder spriteInfo = new StringBuilder();
-			for (TextureAtlasSprite sprite : animatedSprites) {
-				SpriteContents contents = sprite.contents();
-				spriteInfo.append("[").append(contents.name()).append(" u=").append(sprite.getU0()).append("..").append(sprite.getU1())
-					.append(" v=").append(sprite.getV0()).append("..").append(sprite.getV1())
-					.append(" frame=").append(contents.width()).append("x").append(contents.height())
-					.append(" unique=").append(contents.getUniqueFrames().count()).append("]");
-			}
-			SpareTheSympathy.LOGGER.info("[anim-debug] uvs key={} sprites={} quads={}", key, spriteInfo, log);
-		} catch (Throwable throwable) {
-			SpareTheSympathy.LOGGER.warn("[anim-debug] uvs failed for {}", key, throwable);
-		}
-	}
-
-	private static int animatedUvLogged = 0;
-
-	private static void appendQuadUv(StringBuilder log, BakedQuad quad) {
-		int[] v = quad.getVertices();
-		float minU = 1.0F;
-		float minV = 1.0F;
-		float maxU = 0.0F;
-		float maxV = 0.0F;
-		for (int i = 0; i < 4; i++) {
-			float u = Float.intBitsToFloat(v[i * 8 + 4]);
-			float vv = Float.intBitsToFloat(v[i * 8 + 5]);
-			minU = Math.min(minU, u);
-			minV = Math.min(minV, vv);
-			maxU = Math.max(maxU, u);
-			maxV = Math.max(maxV, vv);
-		}
-		log.append("[").append(minU).append(",").append(minV).append("..").append(maxU).append(",").append(maxV).append("]");
 	}
 
 	private static void uploadFrame(Object animatedTexture, TextureAtlasSprite sprite, int cellIndex) throws ReflectiveOperationException {

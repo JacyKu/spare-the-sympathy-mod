@@ -4,7 +4,6 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -21,12 +20,9 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
-import sts.mod.SpareTheSympathy;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Path;
 
 /**
  * Renders an item stack exactly like an inventory GUI icon into the game's
@@ -134,19 +130,6 @@ public final class IconRenderer {
 		graphics.flush();
 		Lighting.setupFor3DItems();
 		pose.popPose();
-	}
-
-	public static void writeDebugPng(String fileName, int[] pixels, int size) {
-		try (NativeImage image = new NativeImage(size, size, true)) {
-			for (int row = 0; row < size; row++) {
-				for (int col = 0; col < size; col++) {
-					image.setPixelRGBA(col, row, pixels[row * size + col]);
-				}
-			}
-			image.writeToFile(Path.of(fileName));
-		} catch (IOException exception) {
-			SpareTheSympathy.LOGGER.warn("Failed to write debug png", exception);
-		}
 	}
 
 	private static int[] readPixels(int size) {

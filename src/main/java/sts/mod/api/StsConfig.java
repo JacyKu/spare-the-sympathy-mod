@@ -24,7 +24,8 @@ import java.nio.file.Path;
  * into the per-button position fields.
  */
 public final class StsConfig {
-	private static final String DEFAULT_SITE_URL = "http://localhost:3001";
+	/** Where the mod points when no site URL has been configured. */
+	public static final String DEFAULT_SITE_URL = "https://sts.deepa.cat";
 
 	/** How far each armoury button can be moved from its anchor. */
 	public static final int ARMOURY_BUTTON_OFFSET_LIMIT = 400;
