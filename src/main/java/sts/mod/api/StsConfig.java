@@ -106,18 +106,38 @@ public final class StsConfig {
 		migrateLegacyButtonPosition();
 	}
 
+	/**
+	 * Pure migration guard: the legacy file is only consulted when the
+	 * autoconfig file does not exist yet (a true first run). Without this the
+	 * migration re-ran on every launch, silently overwriting whatever the
+	 * player had set in the config screen with the legacy value.
+	 */
+	public static boolean shouldMigrateLegacySiteUrl(boolean legacyFileExists, boolean autoconfigFileExists) {
+		return legacyFileExists && !autoconfigFileExists;
+	}
+
 	private static void migrateLegacySiteUrl() {
 		try {
-			Path configFile = FabricLoader.getInstance().getConfigDir()
-				.resolve("sparethesympathy")
-				.resolve("config.json");
+			Path configDir = FabricLoader.getInstance().getConfigDir().resolve("sparethesympathy");
+			Path configFile = configDir.resolve("config.json");
 			if (!Files.exists(configFile)) {
 				return;
 			}
+			Path autoconfigFile = FabricLoader.getInstance().getConfigDir().resolve("sparethesympathy.json");
+			if (!shouldMigrateLegacySiteUrl(true, Files.exists(autoconfigFile))) {
+				// The new config already exists and is the source of truth.
+				// Drop the legacy file so a later launch can never overwrite
+				// the player's setting again.
+				Files.deleteIfExists(configFile);
+				return;
+			}
 			String url = readSiteUrl(Files.readString(configFile, StandardCharsets.UTF_8));
-			config().siteUrl = normalizeSiteUrl(url);
-			AutoConfig.getConfigHolder(StsModConfig.class).save();
-			SpareTheSympathy.LOGGER.info("Migrated legacy config from {} into autoconfig", configFile);
+			if (url != null && !url.isBlank()) {
+				config().siteUrl = normalizeSiteUrl(url);
+				AutoConfig.getConfigHolder(StsModConfig.class).save();
+				SpareTheSympathy.LOGGER.info("Migrated legacy config from {} into autoconfig", configFile);
+			}
+			Files.deleteIfExists(configFile);
 		} catch (Exception e) {
 			SpareTheSympathy.LOGGER.warn("Could not migrate legacy config, keeping defaults", e);
 		}

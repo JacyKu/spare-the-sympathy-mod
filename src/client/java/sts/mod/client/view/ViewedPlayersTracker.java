@@ -339,6 +339,9 @@ public final class ViewedPlayersTracker {
 		}
 		List<StsApiClient.GameClass> classes = ArmouryTracker.classes();
 		if (classes.isEmpty()) {
+			// Kick a retry (throttled internally) so a fetch that failed while
+			// the site was unreachable recovers without reopening the armoury.
+			ArmouryTracker.ensureItemsAndClasses();
 			if (!abilitiesLogged) {
 				abilitiesLogged = true;
 				SpareTheSympathy.LOGGER.warn(

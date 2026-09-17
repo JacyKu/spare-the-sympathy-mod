@@ -3,6 +3,8 @@ package sts.mod.api;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StsConfigTest {
 	@Test
@@ -31,6 +33,17 @@ class StsConfigTest {
 		assertEquals(400, StsConfig.clampOffset(9999));
 		assertEquals(-400, StsConfig.clampOffset(-9999));
 		assertEquals(-37, StsConfig.clampOffset(-37));
+	}
+
+	@Test
+	void legacyMigrationOnlyRunsOnAFreshConfig() {
+		// Fresh install: legacy file present, no autoconfig yet -> migrate.
+		assertTrue(StsConfig.shouldMigrateLegacySiteUrl(true, false));
+		// Autoconfig exists: never touch the player's setting again.
+		assertFalse(StsConfig.shouldMigrateLegacySiteUrl(true, true));
+		// Nothing to migrate.
+		assertFalse(StsConfig.shouldMigrateLegacySiteUrl(false, false));
+		assertFalse(StsConfig.shouldMigrateLegacySiteUrl(false, true));
 	}
 
 	@Test

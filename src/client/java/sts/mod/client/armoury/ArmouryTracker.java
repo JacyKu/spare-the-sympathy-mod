@@ -48,6 +48,8 @@ public final class ArmouryTracker {
 	// so the loadout is not parsed until it exists).
 	private static final long ITEMS_RETRY_INTERVAL_MS = 30_000;
 	private static volatile long lastItemsAttempt;
+	private static final long CLASSES_RETRY_INTERVAL_MS = 30_000;
+	private static volatile long lastClassesAttempt;
 
 	// Link status is re-checked periodically while the armoury is open, so the
 	// Link Account button flips to Linked after the browser flow completes
@@ -134,7 +136,9 @@ public final class ArmouryTracker {
 				}
 			});
 		}
-		if (classes == null && CLASSES_REQUESTED.compareAndSet(false, true)) {
+		if (classes == null && now - lastClassesAttempt >= CLASSES_RETRY_INTERVAL_MS
+			&& CLASSES_REQUESTED.compareAndSet(false, true)) {
+			lastClassesAttempt = now;
 			classesReady = false;
 			EXECUTOR.execute(() -> {
 				try {
@@ -142,8 +146,10 @@ public final class ArmouryTracker {
 					SpareTheSympathy.LOGGER.info("Loaded {} classes for the armoury", classes.size());
 				} catch (Exception e) {
 					SpareTheSympathy.LOGGER.warn("Failed to load skill data for the armoury: {}", e.toString());
-					classes = List.of();
-					CLASSES_REQUESTED.set(false); // allow a retry on the next open
+					// null, not an empty list: a later open (throttled above)
+					// must retry, e.g. after the site URL was corrected.
+					classes = null;
+					CLASSES_REQUESTED.set(false);
 				} finally {
 					classesReady = true;
 				}
