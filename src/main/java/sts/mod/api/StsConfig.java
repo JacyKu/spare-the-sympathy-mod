@@ -203,8 +203,14 @@ public final class StsConfig {
 			if (!isLocalSiteHost(rest)) {
 				clean = "https://" + rest;
 			}
+			return clean;
 		}
-		return clean;
+		// Only http(s) site URLs are supported: other schemes (file:, jar:,
+		// custom handlers) must never reach the request or browser code.
+		if (clean.regionMatches(true, 0, "https://", 0, 8)) {
+			return clean;
+		}
+		return DEFAULT_SITE_URL;
 	}
 
 	private static boolean isLocalSiteHost(String rest) {

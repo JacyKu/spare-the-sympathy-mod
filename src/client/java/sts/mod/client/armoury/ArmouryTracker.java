@@ -240,9 +240,12 @@ public final class ArmouryTracker {
 			if (mc.player == null) {
 				return;
 			}
-			Component link = Component.literal(url).withStyle(style -> style
-				.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-				.withUnderlined(true));
+			net.minecraft.network.chat.MutableComponent link = Component.literal(url);
+			if (isSafeSiteUrl(url)) {
+				link = link.withStyle(style -> style
+					.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+					.withUnderlined(true));
+			}
 			mc.player.displayClientMessage(Component.literal("[STS] " + prefix).append(link), false);
 		});
 	}
@@ -453,10 +456,33 @@ public final class ArmouryTracker {
 	private static void openBrowser(String url) {
 		Minecraft mc = Minecraft.getInstance();
 		try {
+			if (!isSafeSiteUrl(url)) {
+				copyToClipboard(url);
+				feedback = "Refused to open an unexpected link - it was copied to clipboard instead.";
+				return;
+			}
 			net.minecraft.Util.getPlatform().openUri(url);
 		} catch (Exception e) {
 			copyToClipboard(url);
 			feedback = "Could not open a browser - the link was copied to clipboard instead.";
+		}
+	}
+
+	/**
+	 * Only http(s) URLs on the configured site host are opened externally;
+	 * anything else (other schemes, other hosts) is shown but not clickable.
+	 */
+	private static boolean isSafeSiteUrl(String url) {
+		try {
+			java.net.URI candidate = java.net.URI.create(url);
+			java.net.URI site = java.net.URI.create(StsApiClient.siteUrl());
+			String scheme = candidate.getScheme();
+			return candidate.getHost() != null
+				&& site.getHost() != null
+				&& ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))
+				&& candidate.getHost().equalsIgnoreCase(site.getHost());
+		} catch (Exception e) {
+			return false;
 		}
 	}
 

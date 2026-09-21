@@ -47,6 +47,9 @@ public final class StsApiClient {
 		connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
 		connection.setReadTimeout(READ_TIMEOUT_MS);
 		connection.setRequestMethod(method);
+		// Never follow redirects: the device token travels in the request body
+		// and a 3xx must not be able to forward it to another host.
+		connection.setInstanceFollowRedirects(false);
 		connection.setRequestProperty("User-Agent", USER_AGENT);
 		connection.setRequestProperty("Accept", "application/json");
 		if (jsonBody != null) {

@@ -8,6 +8,7 @@ import sts.mod.SpareTheSympathy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -48,6 +49,7 @@ public final class ModIdentity {
 			JsonObject json = new JsonObject();
 			json.addProperty("token", generated);
 			Files.writeString(file, json.toString(), StandardCharsets.UTF_8);
+			restrictToOwner(file);
 			token = generated;
 			return token;
 		} catch (Exception e) {
@@ -63,5 +65,17 @@ public final class ModIdentity {
 		byte[] bytes = new byte[32];
 		RANDOM.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+	}
+
+	/**
+	 * The device token is bearer-like: keep it readable by the owning user only
+	 * on filesystems that support POSIX permissions (best effort elsewhere).
+	 */
+	private static void restrictToOwner(Path file) {
+		try {
+			Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+		} catch (UnsupportedOperationException | java.io.IOException e) {
+			// Windows / non-POSIX filesystems: the default ACL applies.
+		}
 	}
 }

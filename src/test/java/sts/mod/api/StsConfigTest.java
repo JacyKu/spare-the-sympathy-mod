@@ -37,6 +37,16 @@ class StsConfigTest {
 	}
 
 	@Test
+	void refusesNonHttpSchemes() {
+		// Only http(s) site URLs are accepted; anything else falls back to the
+		// default so the device token can never be sent through another handler.
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("file:///etc/passwd"));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("ftp://example.com"));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("jar:file:///tmp/x.jar!/"));
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("sts.deepa.cat"));
+	}
+
+	@Test
 	void clampsButtonOffsets() {
 		assertEquals(0, StsConfig.clampOffset(0));
 		assertEquals(400, StsConfig.clampOffset(400));
