@@ -14,6 +14,7 @@ import sts.mod.config.StsModConfig;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /**
  * Facade over the Cloth Config autoconfig holder for {@link StsModConfig}.
@@ -193,7 +194,47 @@ public final class StsConfig {
 		if (url == null || url.isBlank()) {
 			return DEFAULT_SITE_URL;
 		}
-		return url.replaceAll("/+$", "");
+		String clean = url.trim().replaceAll("/+$", "");
+		// The device token and UUID travel in request bodies; pointing the mod
+		// at a plain-HTTP server would send them in cleartext. Local/LAN hosts
+		// stay as configured for development.
+		if (clean.regionMatches(true, 0, "http://", 0, 7)) {
+			String rest = clean.substring(7);
+			if (!isLocalSiteHost(rest)) {
+				clean = "https://" + rest;
+			}
+		}
+		return clean;
+	}
+
+	private static boolean isLocalSiteHost(String rest) {
+		if (rest.startsWith("[::1]")) {
+			return true;
+		}
+		String host = rest.split("[/:]", 2)[0].toLowerCase(Locale.ROOT);
+		if (host.equals("localhost") || host.equals("0.0.0.0") || host.endsWith(".local")) {
+			return true;
+		}
+		String[] parts = host.split("\\.");
+		if (
+			parts.length == 4
+				&& isIpOctet(parts[0])
+				&& isIpOctet(parts[1])
+				&& isIpOctet(parts[2])
+				&& isIpOctet(parts[3])
+		) {
+			int a = Integer.parseInt(parts[0]);
+			int b = Integer.parseInt(parts[1]);
+			return a == 127
+				|| a == 10
+				|| (a == 192 && b == 168)
+				|| (a == 172 && b >= 16 && b <= 31);
+		}
+		return false;
+	}
+
+	private static boolean isIpOctet(String part) {
+		return part.length() <= 3 && part.matches("\\d+");
 	}
 
 	/** Whether the /buildstealer2000 alias /msgs the target player. */

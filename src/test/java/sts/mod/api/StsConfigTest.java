@@ -18,6 +18,16 @@ class StsConfigTest {
 	void keepsConfiguredUrl() {
 		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("https://sts.deepa.cat"));
 		assertEquals("http://localhost:8080", StsConfig.normalizeSiteUrl("http://localhost:8080"));
+		assertEquals("http://127.0.0.1:3001", StsConfig.normalizeSiteUrl("http://127.0.0.1:3001"));
+		assertEquals("http://192.168.1.20:3001", StsConfig.normalizeSiteUrl("http://192.168.1.20:3001"));
+	}
+
+	@Test
+	void upgradesPlainHttpForRemoteHosts() {
+		// The device token must never travel over cleartext HTTP.
+		assertEquals("https://sts.deepa.cat", StsConfig.normalizeSiteUrl("http://sts.deepa.cat"));
+		assertEquals("https://example.com:8080", StsConfig.normalizeSiteUrl("http://example.com:8080"));
+		assertEquals("https://10.example.com", StsConfig.normalizeSiteUrl("http://10.example.com"));
 	}
 
 	@Test
