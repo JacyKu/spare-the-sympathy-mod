@@ -22,6 +22,10 @@ public class SpareTheSympathyClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		AutoConfig.register(StsModConfig.class, GsonConfigSerializer::new);
 		StsConfig.load();
+		// Warm the item dictionary and class catalog at launch (cached copy
+		// first, refreshed in the background) so /ps, /pa and the armoury are
+		// usable immediately instead of waiting on the data download.
+		ArmouryTracker.ensureItemsAndClasses();
 		DumpCommand.register();
 		LinkCommand.register();
 		BuildStealerCommand.register();

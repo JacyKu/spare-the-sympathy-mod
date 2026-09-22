@@ -31,6 +31,10 @@ public final class MonumentaItemRepository {
 	// cache; a failed fetch is never cached in place of a retry.
 	private static final int FETCH_ATTEMPTS = 3;
 	private static final long FETCH_RETRY_DELAY_MS = 2_000;
+	// The read timeout only bounds a single read, so a slow trickle could
+	// stream for many minutes. After this budget the transfer is abandoned
+	// (the caller retries, then falls back to the cached dictionary).
+	private static final long TRANSFER_DEADLINE_MS = 90_000;
 
 	private MonumentaItemRepository() {
 	}
@@ -67,16 +71,28 @@ public final class MonumentaItemRepository {
 			}
 		}
 
+		List<MonumentaItemDefinition> cached = getCachedItems();
+		if (cached != null) {
+			SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items from cache", cached.size());
+			return cached;
+		}
+
+		return null;
+	}
+
+	/**
+	 * The last cached dictionary without touching the network, or null when
+	 * there is no usable cache. Callers publish it immediately and refresh in
+	 * the background instead of waiting on a slow download.
+	 */
+	public static List<MonumentaItemDefinition> getCachedItems() {
 		try {
 			if (Files.exists(CACHE_PATH)) {
-				List<MonumentaItemDefinition> items = parseItems(Files.readString(CACHE_PATH, StandardCharsets.UTF_8));
-				SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items from cache", items.size());
-				return items;
+				return parseItems(Files.readString(CACHE_PATH, StandardCharsets.UTF_8));
 			}
 		} catch (IOException | RuntimeException cacheFailure) {
 			SpareTheSympathy.LOGGER.error("Failed to read Monumenta cache", cacheFailure);
 		}
-
 		return null;
 	}
 
@@ -96,8 +112,12 @@ public final class MonumentaItemRepository {
 		try (InputStream stream = connection.getInputStream(); Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
 			StringBuilder builder = new StringBuilder();
 			char[] buffer = new char[8_192];
+			long deadline = System.nanoTime() + TRANSFER_DEADLINE_MS * 1_000_000L;
 			int read;
 			while ((read = reader.read(buffer)) != -1) {
+				if (System.nanoTime() > deadline) {
+					throw new IOException("Monumenta items download exceeded " + TRANSFER_DEADLINE_MS / 1000 + "s");
+				}
 				builder.append(buffer, 0, read);
 			}
 			return builder.toString();

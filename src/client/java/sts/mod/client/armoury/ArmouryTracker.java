@@ -24,8 +24,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the render thread only reads.
  */
 public final class ArmouryTracker {
-	private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
-		Thread thread = new Thread(runnable, "SpareTheSympathy-Armoury");
+	// The item dictionary is a multi-megabyte download that can take minutes on
+	// a slow connection: it gets its own pool so linking, saving and exporting
+	// never queue behind it. Two threads so the small class catalog loads while
+	// the dictionary is still downloading.
+	private static final ExecutorService DATA_EXECUTOR = Executors.newFixedThreadPool(2, runnable -> {
+		Thread thread = new Thread(runnable, "SpareTheSympathy-Armoury-Data");
+		thread.setDaemon(true);
+		return thread;
+	});
+	// The player-triggered site requests, in order: link status polls, link,
+	// export and save.
+	private static final ExecutorService ACTION_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+		Thread thread = new Thread(runnable, "SpareTheSympathy-Armoury-Action");
 		thread.setDaemon(true);
 		return thread;
 	});
@@ -119,14 +130,25 @@ public final class ArmouryTracker {
 			lastItemsAttempt = now;
 			itemsReady = false;
 			items = List.of(); // placeholder while the fetch runs (also stops re-queueing)
-			EXECUTOR.execute(() -> {
+			DATA_EXECUTOR.execute(() -> {
 				try {
+					// Publish the cached dictionary first: /ps and the armoury
+					// parse as soon as it is read instead of waiting for the
+					// multi-megabyte API refresh below.
+					List<MonumentaItemDefinition> cached = MonumentaItemRepository.getCachedItems();
+					if (cached != null && !cached.isEmpty()) {
+						items = cached;
+						SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items from cache", cached.size());
+					}
 					List<MonumentaItemDefinition> loaded = MonumentaItemRepository.getItems();
-					items = loaded; // null = API + cache both failed -> retry later
 					if (loaded != null) {
+						items = loaded;
 						SpareTheSympathy.LOGGER.info("Loaded {} Monumenta items for the armoury", loaded.size());
 					} else {
 						SpareTheSympathy.LOGGER.warn("Monumenta items unavailable (API + cache) - retrying later");
+						if (items == null || items.isEmpty()) {
+							items = null; // nothing usable -> retry later
+						}
 					}
 				} catch (RuntimeException e) {
 					SpareTheSympathy.LOGGER.warn("Failed to load Monumenta items for the armoury: {}", e.toString());
@@ -140,7 +162,7 @@ public final class ArmouryTracker {
 			&& CLASSES_REQUESTED.compareAndSet(false, true)) {
 			lastClassesAttempt = now;
 			classesReady = false;
-			EXECUTOR.execute(() -> {
+			DATA_EXECUTOR.execute(() -> {
 				try {
 					classes = StsApiClient.fetchSkills();
 					SpareTheSympathy.LOGGER.info("Loaded {} classes for the armoury", classes.size());
@@ -168,7 +190,7 @@ public final class ArmouryTracker {
 		linkCheckInFlight = true;
 		lastLinkCheck = now;
 		String uuid = mc.getUser().getProfileId().toString();
-		EXECUTOR.execute(() -> {
+		ACTION_EXECUTOR.execute(() -> {
 			try {
 				boolean nowLinked = StsApiClient.isLinked(uuid);
 				boolean wasLinked = Boolean.TRUE.equals(linked);
@@ -266,7 +288,7 @@ public final class ArmouryTracker {
 			sts.mod.api.InfusionReader.basicInfusionsJson(current.basicInfusions());
 		busy = true;
 		feedback = null;
-		EXECUTOR.execute(() -> {
+		ACTION_EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result =
 					StsApiClient.saveBuild(null, token, buildName(current), infusions, null, basicInfusions);
@@ -336,7 +358,7 @@ public final class ArmouryTracker {
 		String uuid = mc.getUser().getProfileId().toString();
 		busy = true;
 		feedback = null;
-		EXECUTOR.execute(() -> {
+		ACTION_EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result = StsApiClient.saveBuild(
 					uuid, token, name, infusions, unknownItems, basicInfusions
@@ -400,7 +422,7 @@ public final class ArmouryTracker {
 	) {
 		busy = true;
 		feedback = null;
-		EXECUTOR.execute(() -> {
+		ACTION_EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result = StsApiClient.saveBuild(null, token, name, infusions, null, basicInfusions);
 				String url = StsApiClient.siteUrl() + result.url();
@@ -431,7 +453,7 @@ public final class ArmouryTracker {
 		String uuid = mc.getUser().getProfileId().toString();
 		busy = true;
 		feedback = null;
-		EXECUTOR.execute(() -> {
+		ACTION_EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.LinkRequest request = StsApiClient.requestLink(uuid);
 				openBrowser(request.url());
