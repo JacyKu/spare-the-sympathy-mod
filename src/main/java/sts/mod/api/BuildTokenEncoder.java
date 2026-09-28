@@ -88,7 +88,10 @@ public final class BuildTokenEncoder {
 		writeVarint(out, health);
 
 		writeText(out, spec);
-		writeSkills(out, specSkills);
+		// Spec abilities only exist alongside their spec: a stale capture
+		// (abilities cached before the player respecced out of it) must not
+		// produce a spec-less token the site cannot resolve.
+		writeSkills(out, spec == null || spec.isEmpty() ? null : specSkills);
 
 		// Enhanced abilities (v3 field), then no Celestial Zenith abilities.
 		writeTextList(out, enhancements);

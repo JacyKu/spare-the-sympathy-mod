@@ -112,4 +112,33 @@ class BuildTokenEncoderTest {
 		);
 		assertEquals("v1_BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANkAAAAAA", token);
 	}
+
+	@Test
+	void dropsSpecSkillsWithoutSpec() {
+		// A stale capture can hold spec abilities after the player respecced
+		// out of the spec; without a spec they must not reach the token.
+		String stale = BuildTokenEncoder.encode(
+			List.of("None", "None", "None", "None", "None", "None"),
+			null,
+			null,
+			"Cleric",
+			null,
+			List.of(new BuildTokenEncoder.Skill("DivineJustice", 2)),
+			List.of(new BuildTokenEncoder.Skill("HolyJavelin", 1)),
+			List.of(),
+			null
+		);
+		String clean = BuildTokenEncoder.encode(
+			List.of("None", "None", "None", "None", "None", "None"),
+			null,
+			null,
+			"Cleric",
+			null,
+			List.of(new BuildTokenEncoder.Skill("DivineJustice", 2)),
+			List.of(),
+			List.of(),
+			null
+		);
+		assertEquals(clean, stale);
+	}
 }

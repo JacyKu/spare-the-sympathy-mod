@@ -451,8 +451,11 @@ public final class ViewedPlayers {
 		/** Sets or clears the player's spec (from the skill page's spec items). */
 		void setSpec(String spec) {
 			if (spec == null) {
-				if (this.spec != null) {
+				// Clearing the spec clears its abilities too: a later upload
+				// must not send spec skills without the spec they belong to.
+				if (this.spec != null || !this.specSkills.isEmpty()) {
 					this.spec = null;
+					this.specSkills = List.of();
 					this.updatedAt = System.currentTimeMillis();
 				}
 				return;

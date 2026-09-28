@@ -245,6 +245,7 @@ public final class ArmouryLoadoutReader {
 				className = displayName;
 			}
 			if (className != null) {
+				specName = knownSpecName(classes, className, specName);
 				parseSkills(classItem, className, specName, classes, skills, specSkills, enhancements);
 			}
 		}
@@ -259,6 +260,7 @@ public final class ArmouryLoadoutReader {
 					className = candidateMatcher.group(1).trim();
 					specName = candidateMatcher.group(2).trim();
 					if (!classes.isEmpty()) {
+						specName = knownSpecName(classes, className, specName);
 						parseSkills(candidate, className, specName, classes, skills, specSkills, enhancements);
 					}
 				}
@@ -415,6 +417,18 @@ public final class ArmouryLoadoutReader {
 			}
 		}
 		return null;
+	}
+
+	// The class item's hover names the spec as "(No Spec)" before one is
+	// chosen (and the catalog can lag behind a rename); only a spec the catalog
+	// knows survives, so the token never carries a spec name the site cannot
+	// resolve (which would make it drop the whole spec/spec-skill state).
+	private static String knownSpecName(List<StsApiClient.GameClass> classes, String className, String specName) {
+		if (specName == null || specName.isEmpty()) {
+			return null;
+		}
+		StsApiClient.GameClass gameClass = findClass(classes, className);
+		return gameClass != null && findSpec(gameClass, specName) != null ? specName : null;
 	}
 
 	private static String vanillaBaseName(ItemStack stack) {
