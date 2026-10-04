@@ -222,13 +222,13 @@ public final class ViewedPlayers {
 	private static String missingAbilitiesHint(CachedPlayer player) {
 		boolean hasClass = player.className() != null && !player.className().isEmpty();
 		boolean hasSkills = !player.skills().isEmpty() || !player.specSkills().isEmpty();
-		if (hasClass && hasSkills) {
+		if (hasClass && hasSkills && player.specSeen) {
 			return "";
 		}
 		if (ArmouryTracker.classes().isEmpty()) {
 			return " (no class/skills: the site's skill catalog isn't loaded - check the site URL and that it is running)";
 		}
-		return " (no class/skills cached: open /pa " + player.name() + " and browse their skill page first)";
+		return " (abilities incomplete: open /pa " + player.name() + " and browse their skill and spec pages first)";
 	}
 
 	/** Per-slot basic infusions as the site's state shape. */
@@ -294,6 +294,9 @@ public final class ViewedPlayers {
 		private volatile List<String> charmKeys = List.of();
 		private volatile String className;
 		private volatile String spec;
+		// True once the spec page's abilities (or a confirmed "no spec" row)
+		// have been looked at - class skills alone leave the build incomplete.
+		private volatile boolean specSeen;
 		private volatile List<BuildTokenEncoder.Skill> skills = List.of();
 		private volatile List<BuildTokenEncoder.Skill> specSkills = List.of();
 		private volatile List<String> enhancements = List.of();
@@ -387,9 +390,10 @@ public final class ViewedPlayers {
 		}
 
 		public boolean hasAbilities() {
-			// The class alone is not enough - the class/spec page needs actual
-			// ability points or a spec to count as cached.
-			return !skills.isEmpty() || !specSkills.isEmpty() || (spec != null && !spec.isEmpty());
+			// The spec has to have been looked at: class skills alone leave
+			// the build without its chosen spec (and its spec abilities). A
+			// player with no spec is complete once the spec row confirmed it.
+			return specSeen && (!skills.isEmpty() || !specSkills.isEmpty() || (spec != null && !spec.isEmpty()));
 		}
 
 		public boolean hasCharms() {
@@ -462,6 +466,14 @@ public final class ViewedPlayers {
 			}
 			if (!spec.equalsIgnoreCase(this.spec == null ? "" : this.spec)) {
 				this.spec = spec;
+				this.updatedAt = System.currentTimeMillis();
+			}
+		}
+
+		/** The spec page (or the "no spec" row) has been looked at. */
+		void markSpecSeen() {
+			if (!specSeen) {
+				specSeen = true;
 				this.updatedAt = System.currentTimeMillis();
 			}
 		}

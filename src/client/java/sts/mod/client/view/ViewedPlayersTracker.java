@@ -70,7 +70,8 @@ public final class ViewedPlayersTracker {
 	public static void onClientTick() {
 		Minecraft mc = Minecraft.getInstance();
 		Screen screen = mc.screen;
-		if (screen != activeScreen) {
+		boolean newScreen = screen != activeScreen;
+		if (newScreen) {
 			activeScreen = screen;
 			activePending = null;
 			activeKind = null;
@@ -92,6 +93,13 @@ public final class ViewedPlayersTracker {
 		}
 		activeKind = kind;
 		activeName = playerForScreen(screen);
+		if (newScreen) {
+			// A new build lookup (/ps, /pa or /vc): refresh the dictionary in
+			// the background so items added or renamed since the session
+			// started resolve (throttled inside; the screen re-parses every
+			// tick, so it picks the fresh dictionary up as soon as it lands).
+			ArmouryTracker.refreshItemsForViewedPlayer();
+		}
 
 		if (kind == ViewedPlayers.Kind.STATS) {
 			ArmouryTracker.ensureItemsAndClasses();
@@ -376,6 +384,11 @@ public final class ViewedPlayersTracker {
 		SpecResult specResult = detectSpec(menu, classes);
 		if (specResult.known()) {
 			cached.setSpec(specResult.spec());
+			if (specResult.spec() == null) {
+				// The spec row confirmed no spec is chosen: there is no spec
+				// page to look at, so the abilities view is complete.
+				cached.markSpecSeen();
+			}
 		}
 
 		Map<String, AbilityRef> byName = new HashMap<>();
@@ -446,10 +459,17 @@ public final class ViewedPlayersTracker {
 			);
 		}
 
-		if (parsedSpec != null && cached.spec() == null) {
-			// The skill page's spec items weren't readable (or it was skipped):
-			// the spec page's own abilities identify the spec.
-			cached.setSpec(parsedSpec);
+		if (parsedSpec != null) {
+			// Spec abilities only render on the (chosen) spec's own page, so
+			// seeing them means the spec was looked at. This also covers a
+			// spec page whose abilities have no points spent: the spec itself
+			// is still part of the build.
+			cached.markSpecSeen();
+			if (cached.spec() == null) {
+				// The skill page's spec items weren't readable (or it was
+				// skipped): the spec page's own abilities identify the spec.
+				cached.setSpec(parsedSpec);
+			}
 		}
 		if (!skills.isEmpty() || !specSkills.isEmpty()) {
 			cached.mergeAbilities(skills, specSkills, enhancements);

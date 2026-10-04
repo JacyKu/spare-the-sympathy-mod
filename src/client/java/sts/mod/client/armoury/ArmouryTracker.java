@@ -62,6 +62,14 @@ public final class ArmouryTracker {
 	private static final long CLASSES_RETRY_INTERVAL_MS = 30_000;
 	private static volatile long lastClassesAttempt;
 
+	// Viewed-player lookups (/ps, /pa, /vc) refresh the dictionary so items
+	// added or renamed since the session started resolve instead of being
+	// recorded as unknown. The dictionary is a multi-megabyte download, so
+	// refreshes are throttled and never run concurrently with each other.
+	private static final long ITEMS_VIEWED_REFRESH_INTERVAL_MS = 60_000;
+	private static volatile long lastItemsRefresh;
+	private static final AtomicBoolean ITEMS_REFRESH_IN_FLIGHT = new AtomicBoolean(false);
+
 	// Link status is re-checked periodically while the armoury is open, so the
 	// Link Account button flips to Linked after the browser flow completes
 	// without needing to close and reopen the screen.
@@ -155,6 +163,9 @@ public final class ArmouryTracker {
 					items = null; // allow a retry later
 				} finally {
 					itemsReady = true;
+					// The initial load already fetched fresh from the API, so a
+					// viewed-player lookup right after must not re-download it.
+					lastItemsRefresh = System.currentTimeMillis();
 				}
 			});
 		}
@@ -177,6 +188,44 @@ public final class ArmouryTracker {
 				}
 			});
 		}
+	}
+
+	/**
+	 * Refreshes the item dictionary for a viewed-player lookup (/ps, /pa,
+	 * /vc): the session dictionary may predate a Monumenta update, and stale
+	 * entries make fresh items look unknown (they would be uploaded as custom
+	 * items). The download runs in the background; the screen parse keeps
+	 * using the current dictionary until the new one lands, then re-resolves
+	 * the equipment on its next tick.
+	 */
+	public static void refreshItemsForViewedPlayer() {
+		ensureItemsAndClasses();
+		List<MonumentaItemDefinition> current = items;
+		if (current == null || current.isEmpty()) {
+			// First load of the session: the load above already fetches fresh.
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (now - lastItemsRefresh < ITEMS_VIEWED_REFRESH_INTERVAL_MS) {
+			return;
+		}
+		if (!ITEMS_REFRESH_IN_FLIGHT.compareAndSet(false, true)) {
+			return;
+		}
+		lastItemsRefresh = now;
+		DATA_EXECUTOR.execute(() -> {
+			try {
+				List<MonumentaItemDefinition> loaded = MonumentaItemRepository.getItems();
+				if (loaded != null && !loaded.isEmpty()) {
+					items = loaded;
+					SpareTheSympathy.LOGGER.info("Refreshed {} Monumenta items for viewed builds", loaded.size());
+				}
+			} catch (RuntimeException e) {
+				SpareTheSympathy.LOGGER.warn("Failed to refresh Monumenta items: {}", e.toString());
+			} finally {
+				ITEMS_REFRESH_IN_FLIGHT.set(false);
+			}
+		});
 	}
 
 	private static void ensureLinkStatus(Minecraft mc) {

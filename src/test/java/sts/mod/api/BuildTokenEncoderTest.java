@@ -46,6 +46,26 @@ class BuildTokenEncoderTest {
 		assertEquals(CHARM_TOKEN, token);
 	}
 
+	// Site reference token for an EX item: the processed dictionary stores
+	// masterwork variants as "EX <name>-<level>" and the token hashes that key.
+	private static final String EX_TOKEN = "v1_B4xtQYMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANkAAAAAA";
+
+	@Test
+	void encodesExaltedItemByteIdentically() {
+		String token = BuildTokenEncoder.encode(
+			List.of("EX Primordial Flames-4", "None", "None", "None", "None", "None"),
+			null,
+			null,
+			null,
+			null,
+			List.of(),
+			List.of(),
+			List.of(),
+			new int[] { 100, 0, 0, 0, 0, 0, 3 }
+		);
+		assertEquals(EX_TOKEN, token);
+	}
+
 	@Test
 	void encodesClassSkillsAndEnhancements() {
 		String token = BuildTokenEncoder.encode(

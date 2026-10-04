@@ -26,6 +26,37 @@ public record MonumentaItemDefinition(
 	List<String> mmLore,
 	Map<String, MonumentaStat> stats
 ) {
+	/**
+	 * Rewrites the raw API dictionary the way the site's processed dictionary
+	 * does, so every key the mod exports resolves there (an unresolvable key
+	 * is dropped by the site's sanitizer and turns the whole token into a
+	 * legacy one): Truest North compass keys lose their suffix, the shears
+	 * variants are dropped, and the Carcano's "/38" spelling is removed.
+	 * Exalted (masterwork) variants are renamed after that, matching the
+	 * site's order.
+	 */
+	public static Map<String, MonumentaItemDefinition> applySiteKeyRenames(Map<String, MonumentaItemDefinition> byKey) {
+		Map<String, MonumentaItemDefinition> result = new LinkedHashMap<>(byKey.size());
+		for (Map.Entry<String, MonumentaItemDefinition> entry : byKey.entrySet()) {
+			String key = entry.getKey();
+			MonumentaItemDefinition def = entry.getValue();
+			if (key.startsWith("Truest North-") && key.endsWith(" (compass)")) {
+				String bare = key.substring(0, key.length() - " (compass)".length());
+				result.put(bare, withKey(def, bare));
+				continue;
+			}
+			if (key.startsWith("Truest North-") && key.endsWith(" (shears)")) {
+				continue;
+			}
+			if (key.equals("Carcano 91/38")) {
+				result.put("Carcano 9138", withKey(def, "Carcano 9138"));
+				continue;
+			}
+			result.put(key, def);
+		}
+		return applyExaltedRenames(result);
+	}
+
 	public static Map<String, MonumentaItemDefinition> applyExaltedRenames(Map<String, MonumentaItemDefinition> byKey) {
 		Map<String, MonumentaItemDefinition> result = new LinkedHashMap<>(byKey.size());
 		for (Map.Entry<String, MonumentaItemDefinition> entry : byKey.entrySet()) {
@@ -35,9 +66,15 @@ public record MonumentaItemDefinition(
 			if (masterwork != null && !masterwork.isEmpty()
 				&& !def.name().equals(key)
 				&& byKey.containsKey(def.name())) {
-				result.put(key, new MonumentaItemDefinition(
-					def.key(),
-					"EX " + def.name(),
+				// The site's processed dictionary rewrites masterwork variants
+				// to "EX <name>-<level>" (display name and key), and build
+				// tokens hash the key - so the dictionary has to expose the
+				// same key or exported EX items never resolve on the site.
+				String exName = "EX " + def.name();
+				String exKey = exName + "-" + masterwork;
+				result.put(exKey, new MonumentaItemDefinition(
+					exKey,
+					exName,
 					def.baseItemName(),
 					def.rawNbt(),
 					def.type(),
@@ -57,6 +94,26 @@ public record MonumentaItemDefinition(
 			}
 		}
 		return result;
+	}
+
+	private static MonumentaItemDefinition withKey(MonumentaItemDefinition def, String key) {
+		return new MonumentaItemDefinition(
+			key,
+			def.name(),
+			def.baseItemName(),
+			def.rawNbt(),
+			def.type(),
+			def.tier(),
+			def.region(),
+			def.location(),
+			def.className(),
+			def.releaseStatus(),
+			def.masterwork(),
+			def.power(),
+			def.lore(),
+			def.mmLore(),
+			def.stats()
+		);
 	}
 
 	public static MonumentaItemDefinition fromJson(String key, JsonObject json) {

@@ -154,7 +154,7 @@ public final class MonumentaItemRepository {
 				SpareTheSympathy.LOGGER.warn("Skipping Monumenta item '{}' due to parse error", entry.getKey());
 			}
 		}
-		byKey = MonumentaItemDefinition.applyExaltedRenames(byKey);
+		byKey = MonumentaItemDefinition.applySiteKeyRenames(byKey);
 		List<MonumentaItemDefinition> items = new ArrayList<>(byKey.values());
 		items.sort(Comparator.comparing(MonumentaItemDefinition::key));
 		return items;

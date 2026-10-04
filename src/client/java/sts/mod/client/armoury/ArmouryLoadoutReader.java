@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
@@ -44,6 +45,8 @@ public final class ArmouryLoadoutReader {
 	private static final Pattern CLASS_NAME = Pattern.compile("^(.+?)\\s*\\((.+?)\\)$");
 	private static final Pattern MASTERWORK = Pattern.compile("-(\\d+)$");
 	private static final Pattern PREFERRED_DELVE = Pattern.compile("^Preferred Delve Infusion: (.+)$");
+	// The tooltip's "Masterwork : ★★" line (a star per level, 1-4).
+	private static final Pattern MASTERWORK_STARS = Pattern.compile("Masterwork\\s*:\\s*([\\u2605]+)");
 
 	// Equipment slot names in the builder's order (mainhand, offhand, helmet,
 	// chestplate, leggings, boots).
@@ -271,41 +274,39 @@ public final class ArmouryLoadoutReader {
 	}
 
 	// Matches an armoury icon back to a dictionary entry by vanilla base item +
-	// display name; masterwork variants share the name, so the highest one
-	// (the "-N" key suffix) wins, mirroring the site's default. Also used by
-	// the viewed-player readers (/ps equipment), which show the same items.
+	// display name; the in-game name never carries the site's "EX " prefix, so
+	// both sides are compared without it and the tooltip's "Masterwork : ★N"
+	// line selects the exact masterwork variant. Also used by the viewed-player
+	// readers (/ps equipment), which show the same items.
 	public static String matchItemKey(ItemStack stack, List<MonumentaItemDefinition> items) {
 		if (stack.isEmpty() || items.isEmpty()) {
 			return "None";
 		}
-		String name = stack.getHoverName().getString().trim();
+		String rawName = stack.getHoverName().getString().trim();
+		boolean exNamed = !stripExPrefix(rawName).equals(rawName);
+		String name = stripExPrefix(rawName);
 		String baseItem = vanillaBaseName(stack);
+		int wantedLevel = masterworkLevelFromStack(stack);
+		if (exNamed && wantedLevel == 0) {
+			// Marked EX but the level is unreadable: take the highest variant
+			// instead of the base item.
+			wantedLevel = -1;
+		}
 		MonumentaItemDefinition best = null;
 		int bestLevel = -1;
-		for (MonumentaItemDefinition item : items) {
-			if (item.type() == null || item.type().equals("Charm")) {
-				continue;
-			}
-			if (!item.name().equalsIgnoreCase(name)) {
-				continue;
-			}
-			if (!item.baseItemName().equalsIgnoreCase(baseItem)) {
-				continue;
-			}
-			int level = masterworkLevel(item.key());
-			if (level > bestLevel) {
-				best = item;
-				bestLevel = level;
-			}
-		}
-		if (best == null) {
-			// Fallback: name-only match (some icons use a different material
-			// spelling than the dictionary's base_item).
+		MonumentaItemDefinition exact = null;
+		// Pass 1 requires the vanilla base item to match; pass 2 is a fallback
+		// for icons whose material spelling differs from the dictionary's
+		// base_item.
+		for (int pass = 0; pass < 2 && best == null; pass++) {
 			for (MonumentaItemDefinition item : items) {
 				if (item.type() == null || item.type().equals("Charm")) {
 					continue;
 				}
-				if (!item.name().equalsIgnoreCase(name)) {
+				if (!stripExPrefix(item.name()).equalsIgnoreCase(name)) {
+					continue;
+				}
+				if (pass == 0 && !item.baseItemName().equalsIgnoreCase(baseItem)) {
 					continue;
 				}
 				int level = masterworkLevel(item.key());
@@ -313,9 +314,60 @@ public final class ArmouryLoadoutReader {
 					best = item;
 					bestLevel = level;
 				}
+				if (level == wantedLevel) {
+					exact = item;
+				}
 			}
 		}
+		if (exact != null) {
+			return exact.key();
+		}
 		return best != null ? best.key() : "None";
+	}
+
+	// In-game names have no "EX " prefix (the site adds it when it processes
+	// masterwork variants); stripping it from both sides lets an item match
+	// whichever side carries it.
+	private static String stripExPrefix(String name) {
+		if (name.length() > 3
+			&& (name.charAt(0) == 'E' || name.charAt(0) == 'e')
+			&& (name.charAt(1) == 'X' || name.charAt(1) == 'x')
+			&& name.charAt(2) == ' ') {
+			return name.substring(3).trim();
+		}
+		return name;
+	}
+
+	// The item's masterwork level: real items carry it in their Monumenta NBT,
+	// while the synthetic GUI icons only state it in the tooltip's
+	// "Masterwork : ★★" line (one star per level, 1-4). No level means the
+	// base (non-masterwork) version.
+	private static int masterworkLevelFromStack(ItemStack stack) {
+		CompoundTag tag = stack.getTag();
+		if (tag != null && tag.contains("Monumenta")) {
+			CompoundTag monumenta = tag.getCompound("Monumenta");
+			if (monumenta.contains("Masterwork")) {
+				try {
+					int level = Integer.parseInt(monumenta.getString("Masterwork").trim());
+					if (level > 0) {
+						return level;
+					}
+				} catch (NumberFormatException ignored) {
+					// fall through to the tooltip
+				}
+			}
+		}
+		Player player = Minecraft.getInstance().player;
+		if (player == null) {
+			return 0;
+		}
+		for (var line : stack.getTooltipLines(player, TooltipFlag.NORMAL)) {
+			Matcher matcher = MASTERWORK_STARS.matcher(line.getString());
+			if (matcher.find()) {
+				return matcher.group(1).length();
+			}
+		}
+		return 0;
 	}
 
 	public static String matchCharmKey(ItemStack stack, List<MonumentaItemDefinition> items) {
