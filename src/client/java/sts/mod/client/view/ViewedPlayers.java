@@ -337,6 +337,30 @@ public final class ViewedPlayers {
 			return spec;
 		}
 
+		/** True once the spec page (or a confirmed "no spec" row) was viewed. */
+		public boolean specSeen() {
+			return specSeen;
+		}
+
+		/**
+		 * 0-2 progress of the /pa view: 1 for cached class abilities, 1 for a
+		 * viewed spec page (or its confirmed "no spec" row). 2 matches the
+		 * tracker's cached mark.
+		 */
+		public int abilitiesProgress() {
+			if (isViewed(Kind.ABILITIES)) {
+				return 2;
+			}
+			int progress = 0;
+			if (!skills.isEmpty()) {
+				progress++;
+			}
+			if (specSeen) {
+				progress++;
+			}
+			return progress;
+		}
+
 		public List<BuildTokenEncoder.Skill> skills() {
 			return skills;
 		}

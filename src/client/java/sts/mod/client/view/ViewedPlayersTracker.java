@@ -176,6 +176,24 @@ public final class ViewedPlayersTracker {
 		return cached != null && cached.isViewed(kind);
 	}
 
+	/** 0-2 progress of the player's /pa view (class abilities + spec page). */
+	public static int abilitiesProgress(String player) {
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
+		return cached == null ? 0 : cached.abilitiesProgress();
+	}
+
+	/** The viewed player's spec once the /pa pages identified it, or null. */
+	public static String viewedSpec(String player) {
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
+		return cached == null ? null : cached.spec();
+	}
+
+	/** Whether the player's spec page (or its confirmed "no spec" row) was viewed. */
+	public static boolean specSeen(String player) {
+		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
+		return cached != null && cached.specSeen();
+	}
+
 	public static boolean hasCachedData(String player) {
 		ViewedPlayers.CachedPlayer cached = ViewedPlayers.get(player);
 		return cached != null && (cached.hasEquipment() || cached.hasAbilities() || cached.hasCharms());

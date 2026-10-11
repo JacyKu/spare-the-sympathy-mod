@@ -10,6 +10,7 @@ import sts.mod.SpareTheSympathy;
 import sts.mod.config.ArmouryButton;
 import sts.mod.config.ArmourySide;
 import sts.mod.config.StsModConfig;
+import sts.mod.config.ViewedButton;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,6 +93,68 @@ public final class StsConfig {
 			case LINK -> {
 				config.linkX = clampedX;
 				config.linkY = clampedY;
+			}
+		}
+		AutoConfig.getConfigHolder(StsModConfig.class).save();
+	}
+
+	public static int viewedButtonX(ViewedButton button) {
+		StsModConfig config = config();
+		return clampOffset(switch (button) {
+			case STATS -> config.viewStatsX;
+			case ABILITIES -> config.viewAbilitiesX;
+			case CHARMS -> config.viewCharmsX;
+			case NEXT -> config.viewNextX;
+			case UPLOAD -> config.viewUploadX;
+			case EXPORT -> config.viewExportX;
+		});
+	}
+
+	public static int viewedButtonY(ViewedButton button) {
+		StsModConfig config = config();
+		return clampOffset(switch (button) {
+			case STATS -> config.viewStatsY;
+			case ABILITIES -> config.viewAbilitiesY;
+			case CHARMS -> config.viewCharmsY;
+			case NEXT -> config.viewNextY;
+			case UPLOAD -> config.viewUploadY;
+			case EXPORT -> config.viewExportY;
+		});
+	}
+
+	/**
+	 * Stores a new position for one /ps, /pa or /vc view button (Ctrl+dragging
+	 * it in-game calls this), so the config screen reflects the position the
+	 * player set.
+	 */
+	public static void setViewedButtonPosition(ViewedButton button, int x, int y) {
+		StsModConfig config = config();
+		int clampedX = clampOffset(x);
+		int clampedY = clampOffset(y);
+		switch (button) {
+			case STATS -> {
+				config.viewStatsX = clampedX;
+				config.viewStatsY = clampedY;
+			}
+			case ABILITIES -> {
+				config.viewAbilitiesX = clampedX;
+				config.viewAbilitiesY = clampedY;
+			}
+			case CHARMS -> {
+				config.viewCharmsX = clampedX;
+				config.viewCharmsY = clampedY;
+			}
+			case NEXT -> {
+				config.viewNextX = clampedX;
+				config.viewNextY = clampedY;
+			}
+			case UPLOAD -> {
+				config.viewUploadX = clampedX;
+				config.viewUploadY = clampedY;
+			}
+			case EXPORT -> {
+				config.viewExportX = clampedX;
+				config.viewExportY = clampedY;
 			}
 		}
 		AutoConfig.getConfigHolder(StsModConfig.class).save();

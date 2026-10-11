@@ -11,6 +11,12 @@
 	"sts.armoury.linked": "Linked",
 	"sts.armoury.link.tooltip": "Links your Minecraft profile to your Discord account so builds save to your profile.",
 
+	"sts.naming.title": "Name the build",
+	"sts.naming.hint": "The build is saved under this name (50 characters max). Leave it empty to keep the default.",
+	"sts.naming.field": "Build name",
+	"sts.naming.save": "Save",
+	"sts.naming.cancel": "Cancel",
+
 	"text.autoconfig.sparethesympathy.title": "Spare the Sympathy Config",
 	"text.autoconfig.sparethesympathy.category.default": "Settings",
 	"text.autoconfig.sparethesympathy.option.siteUrl": "Site URL",
@@ -36,6 +42,36 @@
 	"text.autoconfig.sparethesympathy.option.linkX.@Tooltip": "Horizontal offset from the anchor. Ctrl+dragging the button in-game updates this.",
 	"text.autoconfig.sparethesympathy.option.linkY": "Link Account Y offset",
 	"text.autoconfig.sparethesympathy.option.linkY.@Tooltip": "Vertical offset from the anchor. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewStatsX": "View PS X offset",
+	"text.autoconfig.sparethesympathy.option.viewStatsX.@Tooltip": "Horizontal offset from the /ps button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewStatsY": "View PS Y offset",
+	"text.autoconfig.sparethesympathy.option.viewStatsY.@Tooltip": "Vertical offset from the /ps button's default spot. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewAbilitiesX": "View PA X offset",
+	"text.autoconfig.sparethesympathy.option.viewAbilitiesX.@Tooltip": "Horizontal offset from the /pa button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewAbilitiesY": "View PA Y offset",
+	"text.autoconfig.sparethesympathy.option.viewAbilitiesY.@Tooltip": "Vertical offset from the /pa button's default spot. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewCharmsX": "View VC X offset",
+	"text.autoconfig.sparethesympathy.option.viewCharmsX.@Tooltip": "Horizontal offset from the /vc button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewCharmsY": "View VC Y offset",
+	"text.autoconfig.sparethesympathy.option.viewCharmsY.@Tooltip": "Vertical offset from the /vc button's default spot. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewNextX": "View Next X offset",
+	"text.autoconfig.sparethesympathy.option.viewNextX.@Tooltip": "Horizontal offset from the Next button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewNextY": "View Next Y offset",
+	"text.autoconfig.sparethesympathy.option.viewNextY.@Tooltip": "Vertical offset from the Next button's default spot. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewUploadX": "View Upload X offset",
+	"text.autoconfig.sparethesympathy.option.viewUploadX.@Tooltip": "Horizontal offset from the Upload button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewUploadY": "View Upload Y offset",
+	"text.autoconfig.sparethesympathy.option.viewUploadY.@Tooltip": "Vertical offset from the Upload button's default spot. Ctrl+dragging the button in-game updates this.",
+
+	"text.autoconfig.sparethesympathy.option.viewExportX": "View Export X offset",
+	"text.autoconfig.sparethesympathy.option.viewExportX.@Tooltip": "Horizontal offset from the Export button's default spot. Ctrl+dragging the button in-game updates this.",
+	"text.autoconfig.sparethesympathy.option.viewExportY": "View Export Y offset",
+	"text.autoconfig.sparethesympathy.option.viewExportY.@Tooltip": "Vertical offset from the Export button's default spot. Ctrl+dragging the button in-game updates this.",
 
 	"text.autoconfig.sparethesympathy.option.buildStealerMessageEnabled": "Taunt the player (/buildstealer2000)",
 	"text.autoconfig.sparethesympathy.option.buildStealerMessageEnabled.@Tooltip": "/msg the player whose build you steal with /buildstealer2000. Only that alias sends it - plain /ps never does. Off by default.",

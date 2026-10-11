@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import sts.mod.api.StsConfig;
+import sts.mod.client.ui.BuildNameScreen;
 import sts.mod.config.ArmouryButton;
 import sts.mod.config.ArmourySide;
 
@@ -91,9 +92,17 @@ public final class ArmouryButtons {
 		}
 
 		Button export = new DraggableArmouryButton(positionX(0), positionY(0),
-			BUTTON_WIDTH, BUTTON_HEIGHT, EXPORT, (button) -> ArmouryTracker.exportToClipboard());
+			BUTTON_WIDTH, BUTTON_HEIGHT, EXPORT,
+			(button) -> BuildNameScreen.open(
+				ArmouryTracker.currentBuildName(),
+				ArmouryTracker::exportToClipboard
+			));
 		Button save = new DraggableArmouryButton(positionX(1), positionY(1),
-			BUTTON_WIDTH, BUTTON_HEIGHT, SAVE, (button) -> ArmouryTracker.saveBuild());
+			BUTTON_WIDTH, BUTTON_HEIGHT, SAVE,
+			(button) -> BuildNameScreen.open(
+				ArmouryTracker.currentBuildName(),
+				ArmouryTracker::saveBuild
+			));
 		Button link = new DraggableArmouryButton(positionX(2), positionY(2),
 			BUTTON_WIDTH, BUTTON_HEIGHT, LINK, (button) -> {
 				if (Boolean.TRUE.equals(ArmouryTracker.isLinked())) {

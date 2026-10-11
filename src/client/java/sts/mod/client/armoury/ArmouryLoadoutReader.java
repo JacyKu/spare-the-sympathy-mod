@@ -47,6 +47,10 @@ public final class ArmouryLoadoutReader {
 	private static final Pattern PREFERRED_DELVE = Pattern.compile("^Preferred Delve Infusion: (.+)$");
 	// The tooltip's "Masterwork : ★★" line (a star per level, 1-4).
 	private static final Pattern MASTERWORK_STARS = Pattern.compile("Masterwork\\s*:\\s*([\\u2605]+)");
+	// The Mechanical Armory's icons mark the exalted (Ring) version of an item
+	// with this lore line (see Monumenta's LoadoutManagerGui). The exact
+	// masterwork level is not disclosed, so the highest variant stands in.
+	private static final String EXALTED_VERSION_LINE = "Exalted version";
 
 	// Equipment slot names in the builder's order (mainhand, offhand, helmet,
 	// chestplate, leggings, boots).
@@ -276,8 +280,9 @@ public final class ArmouryLoadoutReader {
 	// Matches an armoury icon back to a dictionary entry by vanilla base item +
 	// display name; the in-game name never carries the site's "EX " prefix, so
 	// both sides are compared without it and the tooltip's "Masterwork : ★N"
-	// line selects the exact masterwork variant. Also used by the viewed-player
-	// readers (/ps equipment), which show the same items.
+	// line (real items) or "Exalted version" line (armory icons) selects the
+	// masterwork variant. Also used by the viewed-player readers (/ps
+	// equipment), which show the same items.
 	public static String matchItemKey(ItemStack stack, List<MonumentaItemDefinition> items) {
 		if (stack.isEmpty() || items.isEmpty()) {
 			return "None";
@@ -292,8 +297,21 @@ public final class ArmouryLoadoutReader {
 			// instead of the base item.
 			wantedLevel = -1;
 		}
-		MonumentaItemDefinition best = null;
+		return resolveItemKey(name, baseItem, wantedLevel, items);
+	}
+
+	/**
+	 * Picks the dictionary key for an item name. {@code wantedLevel} is the
+	 * masterwork level to resolve: a positive level selects that variant, 0
+	 * selects the base item (the item's lowest variant when the dictionary has
+	 * no base entry), and -1 selects the highest variant (the armory's exalted
+	 * version, whose exact level the GUI does not state).
+	 */
+	static String resolveItemKey(String name, String baseItem, int wantedLevel, List<MonumentaItemDefinition> items) {
+		MonumentaItemDefinition best = null; // highest masterwork level seen
 		int bestLevel = -1;
+		MonumentaItemDefinition lowest = null; // lowest masterwork level seen
+		int lowestLevel = Integer.MAX_VALUE;
 		MonumentaItemDefinition exact = null;
 		// Pass 1 requires the vanilla base item to match; pass 2 is a fallback
 		// for icons whose material spelling differs from the dictionary's
@@ -314,6 +332,10 @@ public final class ArmouryLoadoutReader {
 					best = item;
 					bestLevel = level;
 				}
+				if (level < lowestLevel) {
+					lowest = item;
+					lowestLevel = level;
+				}
 				if (level == wantedLevel) {
 					exact = item;
 				}
@@ -322,7 +344,16 @@ public final class ArmouryLoadoutReader {
 		if (exact != null) {
 			return exact.key();
 		}
-		return best != null ? best.key() : "None";
+		if (best == null) {
+			return "None";
+		}
+		// Exalted without a level: the highest variant stands in. A base item
+		// whose dictionary only has masterwork entries resolves to its lowest
+		// variant - the state in which it drops.
+		if (wantedLevel == 0) {
+			return lowest.key();
+		}
+		return best.key();
 	}
 
 	// In-game names have no "EX " prefix (the site adds it when it processes
@@ -339,9 +370,9 @@ public final class ArmouryLoadoutReader {
 	}
 
 	// The item's masterwork level: real items carry it in their Monumenta NBT,
-	// while the synthetic GUI icons only state it in the tooltip's
-	// "Masterwork : ★★" line (one star per level, 1-4). No level means the
-	// base (non-masterwork) version.
+	// while the synthetic GUI icons state it in their tooltip (the armory's
+	// "Exalted version" line or, when present, the "Masterwork : ★N" stars).
+	// No level means the base (non-masterwork) version.
 	private static int masterworkLevelFromStack(ItemStack stack) {
 		CompoundTag tag = stack.getTag();
 		if (tag != null && tag.contains("Monumenta")) {
@@ -361,13 +392,32 @@ public final class ArmouryLoadoutReader {
 		if (player == null) {
 			return 0;
 		}
+		List<String> lines = new ArrayList<>();
 		for (var line : stack.getTooltipLines(player, TooltipFlag.NORMAL)) {
-			Matcher matcher = MASTERWORK_STARS.matcher(line.getString());
+			lines.add(line.getString());
+		}
+		return masterworkLevelFromLines(lines);
+	}
+
+	/**
+	 * Classifies an item tooltip's masterwork markers: a "Masterwork : ★N"
+	 * line gives the exact level, the armory icons' "Exalted version" line
+	 * marks the exalted (Ring) variant whose level the GUI does not state
+	 * (returned as -1, resolved to the highest variant), and no marker at all
+	 * means the base version (0).
+	 */
+	static int masterworkLevelFromLines(List<String> lines) {
+		boolean exalted = false;
+		for (String text : lines) {
+			Matcher matcher = MASTERWORK_STARS.matcher(text);
 			if (matcher.find()) {
 				return matcher.group(1).length();
 			}
+			if (text.contains(EXALTED_VERSION_LINE)) {
+				exalted = true;
+			}
 		}
-		return 0;
+		return exalted ? -1 : 0;
 	}
 
 	public static String matchCharmKey(ItemStack stack, List<MonumentaItemDefinition> items) {

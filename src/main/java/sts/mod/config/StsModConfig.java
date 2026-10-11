@@ -42,6 +42,52 @@ public class StsModConfig implements ConfigData {
 	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
 	public int linkY = 52;
 
+	// The /ps, /pa and /vc view buttons keep their default layout as their
+	// anchor; x/y are offsets from it. Ctrl+dragging a button in-game writes
+	// its offsets back here.
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewStatsX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewStatsY = 0;
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewAbilitiesX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewAbilitiesY = 0;
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewCharmsX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewCharmsY = 0;
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewNextX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewNextY = 0;
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewUploadX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewUploadY = 0;
+
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewExportX = 0;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int viewExportY = 0;
+
 	// /buildstealer2000: optionally /msg the player the alias was used on.
 	// Only the alias triggers this - plain /ps never does.
 
@@ -59,6 +105,18 @@ public class StsModConfig implements ConfigData {
 		this.saveY = StsConfig.clampOffset(this.saveY);
 		this.linkX = StsConfig.clampOffset(this.linkX);
 		this.linkY = StsConfig.clampOffset(this.linkY);
+		this.viewStatsX = StsConfig.clampOffset(this.viewStatsX);
+		this.viewStatsY = StsConfig.clampOffset(this.viewStatsY);
+		this.viewAbilitiesX = StsConfig.clampOffset(this.viewAbilitiesX);
+		this.viewAbilitiesY = StsConfig.clampOffset(this.viewAbilitiesY);
+		this.viewCharmsX = StsConfig.clampOffset(this.viewCharmsX);
+		this.viewCharmsY = StsConfig.clampOffset(this.viewCharmsY);
+		this.viewNextX = StsConfig.clampOffset(this.viewNextX);
+		this.viewNextY = StsConfig.clampOffset(this.viewNextY);
+		this.viewUploadX = StsConfig.clampOffset(this.viewUploadX);
+		this.viewUploadY = StsConfig.clampOffset(this.viewUploadY);
+		this.viewExportX = StsConfig.clampOffset(this.viewExportX);
+		this.viewExportY = StsConfig.clampOffset(this.viewExportY);
 		this.buildStealerMessage = StsConfig.normalizeBuildStealerMessage(this.buildStealerMessage);
 	}
 }

@@ -10,6 +10,7 @@ import sts.mod.api.BuildTokenEncoder;
 import sts.mod.api.MonumentaItemDefinition;
 import sts.mod.api.MonumentaItemRepository;
 import sts.mod.api.StsApiClient;
+import sts.mod.client.ui.BuildNameScreen;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -88,6 +89,11 @@ public final class ArmouryTracker {
 			return;
 		}
 		Screen screen = mc.screen;
+		if (screen instanceof BuildNameScreen) {
+			// The naming prompt temporarily replaces the armoury screen: keep
+			// the parsed loadout (and the buttons) alive while it is open.
+			return;
+		}
 		if (screen == null || !ArmouryLoadoutReader.isArmouryScreen(screen)) {
 			closeArmoury();
 			return;
@@ -283,7 +289,7 @@ public final class ArmouryTracker {
 		if (current == null) {
 			return null;
 		}
-		return StsApiClient.siteUrl() + "/builder/" + encode(current);
+		return StsApiClient.siteUrl() + "/builder/" + encode(current, buildName(current));
 	}
 
 	public static void copyToClipboard(String text) {
@@ -325,13 +331,14 @@ public final class ArmouryTracker {
 	// account attached) and the player gets a short link back - the raw token
 	// is never handed out directly. Falls back to the raw builder link only
 	// when the site is unreachable.
-	public static void exportToClipboard() {
+	public static void exportToClipboard(String name) {
 		ArmouryLoadoutReader.Loadout current = loadout;
 		if (current == null) {
 			showMessage("No loadout to export.");
 			return;
 		}
-		String token = encode(current);
+		String buildName = name == null || name.isBlank() ? buildName(current) : name;
+		String token = encode(current, buildName);
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>(current.delveInfusions());
 		com.google.gson.JsonObject basicInfusions =
 			sts.mod.api.InfusionReader.basicInfusionsJson(current.basicInfusions());
@@ -340,7 +347,7 @@ public final class ArmouryTracker {
 		ACTION_EXECUTOR.execute(() -> {
 			try {
 				StsApiClient.SaveResult result =
-					StsApiClient.saveBuild(null, token, buildName(current), infusions, null, basicInfusions);
+					StsApiClient.saveBuild(null, token, buildName, infusions, null, basicInfusions);
 				copyToClipboard(StsApiClient.siteUrl() + result.url());
 				feedback = "Build saved and short link copied to clipboard.";
 			} catch (Exception e) {
@@ -352,22 +359,28 @@ public final class ArmouryTracker {
 		});
 	}
 
-	public static void saveBuild() {
+	public static void saveBuild(String name) {
 		ArmouryLoadoutReader.Loadout current = loadout;
 		if (current == null) {
 			showMessage("No loadout to save.");
 			return;
 		}
-		String token = encode(current);
+		String buildName = name == null || name.isBlank() ? buildName(current) : name;
+		String token = encode(current, buildName);
 		java.util.Map<String, String> infusions = new java.util.LinkedHashMap<>(current.delveInfusions());
 		com.google.gson.JsonObject basicInfusions =
 			sts.mod.api.InfusionReader.basicInfusionsJson(current.basicInfusions());
-		String name = buildName(current);
 		com.google.gson.JsonArray unknownItems = new com.google.gson.JsonArray();
 		for (com.google.gson.JsonObject payload : current.unknownItemPayloads()) {
 			unknownItems.add(payload);
 		}
-		saveToken(name, token, infusions, unknownItems, basicInfusions, false);
+		saveToken(buildName, token, infusions, unknownItems, basicInfusions, false);
+	}
+
+	/** The default build name for the current loadout (naming prompt prefill). */
+	public static String currentBuildName() {
+		ArmouryLoadoutReader.Loadout current = loadout;
+		return current == null ? "Armoury Loadout" : buildName(current);
 	}
 
 	/**
@@ -557,7 +570,7 @@ public final class ArmouryTracker {
 		}
 	}
 
-	private static String encode(ArmouryLoadoutReader.Loadout loadout) {
+	private static String encode(ArmouryLoadoutReader.Loadout loadout, String name) {
 		// Basic (normal) infusion levels are the builder's stat inputs (it
 		// sums them per type across the six slots); they ride in the token's
 		// stat bytes. The region stays at the builder default (the armoury
@@ -575,7 +588,7 @@ public final class ArmouryTracker {
 		return BuildTokenEncoder.encode(
 			List.of(loadout.itemKeys()),
 			loadout.charmKeys().isEmpty() ? null : String.join(",", loadout.charmKeys()),
-			buildName(loadout),
+			name,
 			loadout.className(),
 			loadout.specName(),
 			loadout.skills(),
