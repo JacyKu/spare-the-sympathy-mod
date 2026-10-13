@@ -85,20 +85,50 @@ public final class ViewedPlayers {
 				// without) a successful GUI parse.
 				cache(left);
 				cache(right);
+				// A new lookup replaces the previous capture for that player
+				// (browsing the pages of one lookup still accumulates).
+				resetStats(left);
+				resetStats(right);
 			}
 			case "pa", "playerabilities" -> {
 				String target = argumentOrSelf(parts, 1);
 				pending = new Pending(Kind.ABILITIES, target, null, now);
 				cache(target);
+				resetAbilities(target);
 			}
 			case "vc", "viewcharms" -> {
 				String target = argumentOrSelf(parts, 1);
 				pending = new Pending(Kind.CHARMS, target, null, now);
 				cache(target);
+				resetCharms(target);
 			}
 			default -> {
 				// Not a view command; leave any pending target alone.
 			}
+		}
+	}
+
+	/** A fresh /ps for a player replaces their previous equipment capture. */
+	private static void resetStats(String name) {
+		CachedPlayer cached = cache(name);
+		if (cached != null) {
+			cached.resetStats();
+		}
+	}
+
+	/** A fresh /pa for a player replaces their previous ability capture. */
+	private static void resetAbilities(String name) {
+		CachedPlayer cached = cache(name);
+		if (cached != null) {
+			cached.resetAbilities();
+		}
+	}
+
+	/** A fresh /vc for a player replaces their previous charm capture. */
+	private static void resetCharms(String name) {
+		CachedPlayer cached = cache(name);
+		if (cached != null) {
+			cached.resetCharms();
 		}
 	}
 
@@ -290,7 +320,10 @@ public final class ViewedPlayers {
 	public static final class CachedPlayer {
 		private final String name;
 		private volatile String[] itemKeys = new String[6];
-		private volatile List<JsonObject> unknownItems = List.of();
+		// Unknown equipment/charm payloads, kept per capture kind so a fresh
+		// view can replace its own without dropping the other's.
+		private volatile List<JsonObject> unknownEquipment = List.of();
+		private volatile List<JsonObject> unknownCharms = List.of();
 		private volatile List<String> charmKeys = List.of();
 		private volatile String className;
 		private volatile String spec;
@@ -321,8 +354,12 @@ public final class ViewedPlayers {
 			return itemKeys;
 		}
 
+		/** Unknown equipment and charm payloads, in capture order. */
 		public List<JsonObject> unknownItems() {
-			return unknownItems;
+			List<JsonObject> all = new ArrayList<>(unknownEquipment.size() + unknownCharms.size());
+			all.addAll(unknownEquipment);
+			all.addAll(unknownCharms);
+			return List.copyOf(all);
 		}
 
 		public List<String> charmKeys() {
@@ -410,7 +447,7 @@ public final class ViewedPlayers {
 					return true;
 				}
 			}
-			return !unknownItems.isEmpty();
+			return !unknownEquipment.isEmpty() || !unknownCharms.isEmpty();
 		}
 
 		public boolean hasAbilities() {
@@ -437,6 +474,44 @@ public final class ViewedPlayers {
 				&& (className == null || className.isEmpty());
 		}
 
+		/**
+		 * A fresh /ps replaces the previous equipment capture (items, infusions
+		 * and their unknown-item payloads) instead of merging into it, so a
+		 * re-view never keeps stale gear.
+		 */
+		void resetStats() {
+			itemKeys = new String[6];
+			unknownEquipment = List.of();
+			region = 3;
+			delveInfusions = Map.of();
+			basicInfusions = Map.of();
+			viewed.remove(Kind.STATS);
+			notified.remove(Kind.STATS);
+			updatedAt = System.currentTimeMillis();
+		}
+
+		/** A fresh /pa replaces the previous class/spec/ability capture. */
+		void resetAbilities() {
+			className = null;
+			spec = null;
+			specSeen = false;
+			skills = List.of();
+			specSkills = List.of();
+			enhancements = List.of();
+			viewed.remove(Kind.ABILITIES);
+			notified.remove(Kind.ABILITIES);
+			updatedAt = System.currentTimeMillis();
+		}
+
+		/** A fresh /vc replaces the previous charm capture. */
+		void resetCharms() {
+			charmKeys = List.of();
+			unknownCharms = List.of();
+			viewed.remove(Kind.CHARMS);
+			notified.remove(Kind.CHARMS);
+			updatedAt = System.currentTimeMillis();
+		}
+
 		void mergeEquipment(String[] keys, List<JsonObject> unknown) {
 			boolean anyItem = false;
 			for (String key : keys) {
@@ -448,7 +523,7 @@ public final class ViewedPlayers {
 				return;
 			}
 			this.itemKeys = keys.clone();
-			this.unknownItems = mergeUnknown(this.unknownItems, unknown);
+			this.unknownEquipment = mergeUnknown(this.unknownEquipment, unknown);
 			this.updatedAt = System.currentTimeMillis();
 		}
 
@@ -457,7 +532,7 @@ public final class ViewedPlayers {
 				return;
 			}
 			this.charmKeys = List.copyOf(keys);
-			this.unknownItems = mergeUnknown(this.unknownItems, unknown);
+			this.unknownCharms = mergeUnknown(this.unknownCharms, unknown);
 			this.updatedAt = System.currentTimeMillis();
 		}
 

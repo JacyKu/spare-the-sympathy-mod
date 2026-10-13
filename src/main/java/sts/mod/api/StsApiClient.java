@@ -130,6 +130,10 @@ public final class StsApiClient {
 			JsonObject object = new JsonObject();
 			infusions.forEach(object::addProperty);
 			body.add("infusions", object);
+			// The mod cannot tell whether the items carry a Revelation
+			// infusion, so it assumes it is on: delve infusions upload at
+			// level V.
+			body.addProperty("revelation", true);
 		}
 		if (basicInfusions != null && basicInfusions.size() > 0) {
 			body.add("basicInfusions", basicInfusions);
