@@ -69,4 +69,22 @@ class InfusionReaderTest {
 		assertNull(InfusionReader.parseDelveInfusionLine("Choleric Sword"));
 		assertNull(InfusionReader.parseDelveInfusionLine(""));
 	}
+
+	@Test
+	void parsesTheArmouryPreferredInfusionLine() {
+		// The armoury icons carry no level, so the assumed one is used.
+		assertEquals("Vitality", InfusionReader.parsePreferredBasicInfusionLine("Preferred Infusion: Vitality", 4).name());
+		assertEquals(4, InfusionReader.parsePreferredBasicInfusionLine("Preferred Infusion: Vitality", 4).level());
+		assertEquals(
+			"Acumen",
+			InfusionReader.parsePreferredBasicInfusionLine("  \u00a7fPreferred Infusion: \u00a7aAcumen  ", 3).name()
+		);
+		assertEquals(3, InfusionReader.parsePreferredBasicInfusionLine("Preferred Infusion: Tenacity", 3).level());
+		// "any" and the delve line are not basic infusions.
+		assertNull(InfusionReader.parsePreferredBasicInfusionLine("Preferred Infusion: any", 4));
+		assertNull(InfusionReader.parsePreferredBasicInfusionLine("Preferred Delve Infusion: Aura", 4));
+		assertNull(InfusionReader.parsePreferredBasicInfusionLine("Preferred Infusion:", 4));
+		assertNull(InfusionReader.parsePreferredBasicInfusionLine("Vitality IV", 4));
+		assertNull(InfusionReader.parsePreferredBasicInfusionLine(null, 4));
+	}
 }

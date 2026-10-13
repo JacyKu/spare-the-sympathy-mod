@@ -72,6 +72,39 @@ public final class InfusionReader {
 	}
 
 	/**
+	 * The Mechanical Armory's "Preferred Infusion: &lt;Name&gt;" line: the
+	 * armoury only stores which basic infusion the loadout should prefer, never
+	 * its level (the level lives on the actual item), so the caller supplies
+	 * the assumed level. Returns null for "any" and unknown names.
+	 */
+	public static BasicInfusion preferredBasicInfusionOn(ItemStack stack, Player player, int assumedLevel) {
+		for (Component line : stack.getTooltipLines(player, TooltipFlag.NORMAL)) {
+			BasicInfusion parsed = parsePreferredBasicInfusionLine(line.getString(), assumedLevel);
+			if (parsed != null) {
+				return parsed;
+			}
+		}
+		return null;
+	}
+
+	/** One tooltip line -> the armoury's preferred basic infusion, or null. */
+	static BasicInfusion parsePreferredBasicInfusionLine(String raw, int assumedLevel) {
+		String text = clean(raw);
+		int marker = text.indexOf("Preferred Infusion:");
+		if (marker < 0) {
+			// "Preferred Delve Infusion: ..." is handled by the delve reader.
+			return null;
+		}
+		String value = text.substring(marker + "Preferred Infusion:".length()).trim();
+		String[] tokens = value.split("\\s+");
+		if (tokens.length == 0) {
+			return null;
+		}
+		String display = BASIC_INFUSIONS.get(trimEdges(tokens[0]).toLowerCase(Locale.ROOT));
+		return display != null ? new BasicInfusion(display, assumedLevel) : null;
+	}
+
+	/**
 	 * Parses one tooltip line into a basic infusion, or null. The plugin's
 	 * exact line shape can vary ("Vitality IV", "Vitality: IV", "VitalityIV",
 	 * with or without a leading icon/glyph and colour codes), so this is

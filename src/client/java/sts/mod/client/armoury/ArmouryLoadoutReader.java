@@ -45,6 +45,10 @@ public final class ArmouryLoadoutReader {
 	private static final Pattern CLASS_NAME = Pattern.compile("^(.+?)\\s*\\((.+?)\\)$");
 	private static final Pattern MASTERWORK = Pattern.compile("-(\\d+)$");
 	private static final Pattern PREFERRED_DELVE = Pattern.compile("^Preferred Delve Infusion: (.+)$");
+	// The armoury icons carry the loadout's *preferred* basic infusion
+	// ("Preferred Infusion: Vitality") but never its level - the level lives on
+	// the real item - so the maximum level is assumed on export.
+	private static final int ASSUMED_BASIC_INFUSION_LEVEL = 4;
 	// The tooltip's "Masterwork : ★★" line (a star per level, 1-4).
 	private static final Pattern MASTERWORK_STARS = Pattern.compile("Masterwork\\s*:\\s*([\\u2605]+)");
 	// The Mechanical Armory's icons mark the exalted (Ring) version of an item
@@ -187,6 +191,15 @@ public final class ArmouryLoadoutReader {
 			}
 			String slotName = SLOT_NAMES[i];
 			sts.mod.api.InfusionReader.BasicInfusion basic = sts.mod.api.InfusionReader.basicInfusionOn(stack, player);
+			if (basic == null) {
+				// No level on the icon: use the loadout's preferred infusion
+				// with the assumed level.
+				basic = sts.mod.api.InfusionReader.preferredBasicInfusionOn(
+					stack,
+					player,
+					ASSUMED_BASIC_INFUSION_LEVEL
+				);
+			}
 			if (basic != null) {
 				basicInfusions.put(slotName, basic);
 			}
