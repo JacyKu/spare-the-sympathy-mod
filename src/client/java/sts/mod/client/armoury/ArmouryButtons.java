@@ -93,16 +93,10 @@ public final class ArmouryButtons {
 
 		Button export = new DraggableArmouryButton(positionX(0), positionY(0),
 			BUTTON_WIDTH, BUTTON_HEIGHT, EXPORT,
-			(button) -> BuildNameScreen.open(
-				ArmouryTracker.currentBuildName(),
-				ArmouryTracker::exportToClipboard
-			));
+			(button) -> openNamingOrRun(ArmouryTracker.currentBuildName(), ArmouryTracker::exportToClipboard));
 		Button save = new DraggableArmouryButton(positionX(1), positionY(1),
 			BUTTON_WIDTH, BUTTON_HEIGHT, SAVE,
-			(button) -> BuildNameScreen.open(
-				ArmouryTracker.currentBuildName(),
-				ArmouryTracker::saveBuild
-			));
+			(button) -> openNamingOrRun(ArmouryTracker.currentBuildName(), ArmouryTracker::saveBuild));
 		Button link = new DraggableArmouryButton(positionX(2), positionY(2),
 			BUTTON_WIDTH, BUTTON_HEIGHT, LINK, (button) -> {
 				if (Boolean.TRUE.equals(ArmouryTracker.isLinked())) {
@@ -118,6 +112,18 @@ public final class ArmouryButtons {
 
 		currentButtons = List.of(export, save, link);
 		return currentButtons;
+	}
+
+	/**
+	 * The naming prompt, unless Shift is held: Shift+clicking Export/Save runs
+	 * the action straight away with the default name.
+	 */
+	private static void openNamingOrRun(String defaultName, java.util.function.Consumer<String> action) {
+		if (Screen.hasShiftDown()) {
+			action.accept(defaultName);
+		} else {
+			BuildNameScreen.open(defaultName, action);
+		}
 	}
 
 	/**

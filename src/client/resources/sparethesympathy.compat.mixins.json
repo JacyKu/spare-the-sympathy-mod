@@ -1,0 +1,13 @@
+{
+	"required": false,
+	"package": "sts.mod.client.compat.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"plugin": "sts.mod.client.compat.StsCompatMixinPlugin",
+	"client": [
+		"UmmCalculatorWidgetCompatibility",
+		"UmmScreenMixinCompatibility"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

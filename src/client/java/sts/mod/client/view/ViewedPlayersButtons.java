@@ -123,18 +123,32 @@ public final class ViewedPlayersButtons {
 		Button next = new DraggableViewedButton(positionX(3), positionY(3), NEXT_WIDTH, HEIGHT,
 			Component.literal("Next"), b -> openNext());
 		// Build actions live on a second row; they stay hidden until the
-		// player has something cached. Both open the naming prompt first.
+		// player has something cached. Both open the naming prompt first
+		// (Shift+click skips it and uses the default name).
 		Button upload = new DraggableViewedButton(positionX(4), positionY(4), ACTION_WIDTH, HEIGHT,
 			Component.literal("Upload"),
-			b -> BuildNameScreen.open(player, name -> ViewedPlayers.upload(player, name)));
+			b -> openNamingOrRun(name -> ViewedPlayers.upload(player, name)));
 		Button export = new DraggableViewedButton(positionX(5), positionY(5), ACTION_WIDTH, HEIGHT,
 			Component.literal("Export"),
-			b -> BuildNameScreen.open(player, name -> ViewedPlayers.export(player, name)));
+			b -> openNamingOrRun(name -> ViewedPlayers.export(player, name)));
 
 		currentButtons = List.of(ps, pa, vc, next, upload, export);
 		buttonScreen = screen;
 		draggingIndex = -1;
 		return currentButtons;
+	}
+
+	/**
+	 * The naming prompt, unless Shift is held: Shift+clicking Upload/Export
+	 * runs the action straight away with the default name (the viewed player's
+	 * name, which is also the prompt's prefill).
+	 */
+	private static void openNamingOrRun(java.util.function.Consumer<String> action) {
+		if (Screen.hasShiftDown()) {
+			action.accept(player);
+		} else {
+			BuildNameScreen.open(player, action);
+		}
 	}
 
 	/** Refreshes labels, tooltips and the cached-only Upload/Export buttons. */
@@ -193,7 +207,7 @@ public final class ViewedPlayersButtons {
 		upload.active = cached;
 		upload.setTooltip(Tooltip.create(Component.literal(
 			cached
-				? "Upload " + player + "'s cached build to your account (saved to your Discord profile)"
+				? "Upload " + player + "'s cached build to your account (saved to your Discord profile). Shift+click skips the name prompt."
 				: emptyHint
 		)));
 		Button export = buttons.get(5);
@@ -201,7 +215,7 @@ public final class ViewedPlayersButtons {
 		export.active = cached;
 		export.setTooltip(Tooltip.create(Component.literal(
 			cached
-				? "Generate a shareable link for " + player + "'s cached build (not attached to your account)"
+				? "Generate a shareable link for " + player + "'s cached build (not attached to your account). Shift+click skips the name prompt."
 				: emptyHint
 		)));
 	}

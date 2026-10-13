@@ -4,9 +4,9 @@
 	"sts.command.dump.failed": "Dump failed: %s",
 
 	"sts.armoury.export": "Export Link",
-	"sts.armoury.export.tooltip": "Copies a shareable STS builder link for the current loadout to your clipboard.",
+	"sts.armoury.export.tooltip": "Copies a shareable STS builder link for the current loadout to your clipboard. Shift+click skips the name prompt.",
 	"sts.armoury.save": "Save to Profile",
-	"sts.armoury.save.tooltip": "Saves the current loadout to your STS profile (if linked) and copies its short link.",
+	"sts.armoury.save.tooltip": "Saves the current loadout to your STS profile (if linked) and copies its short link. Shift+click skips the name prompt.",
 	"sts.armoury.link": "Link Account",
 	"sts.armoury.linked": "Linked",
 	"sts.armoury.link.tooltip": "Links your Minecraft profile to your Discord account so builds save to your profile.",
