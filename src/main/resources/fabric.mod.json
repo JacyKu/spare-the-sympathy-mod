@@ -42,6 +42,7 @@
 		"entity_texture_features": ">=7.0.8"
 	},
 	"suggests": {
-		"modmenu": "*"
+		"modmenu": "*",
+		"unofficial-monumenta-mod": "*"
 	}
 }

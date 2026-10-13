@@ -59,6 +59,9 @@ dependencies {
 	modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
 	modLocalRuntime "maven.modrinth:cit-resewn:${project.cit_resewn_version}"
 	modLocalRuntime "maven.modrinth:cit-resewn-defaults:${project.cit_resewn_version}"
+	// Unofficial Monumenta Mod rides along in the dev runtime so the optional
+	// compatibility mixins (sts/mod/client/compat) can be tested in-game.
+	modLocalRuntime "maven.modrinth:unofficial-monumenta-mod:${umm_version}"
 
 	testImplementation sourceSets.client.output
 	testImplementation sourceSets.client.compileClasspath
