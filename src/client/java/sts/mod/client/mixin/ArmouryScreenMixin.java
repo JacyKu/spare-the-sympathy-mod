@@ -42,6 +42,13 @@ abstract class ArmouryScreenMixin {
 
 	@Inject(method = "init(Lnet/minecraft/client/Minecraft;II)V", at = @At("TAIL"))
 	private void sparethesympathy$createArmouryButtons(Minecraft client, int width, int height, CallbackInfo ci) {
+		// ReplayMod (and other GUI wrappers) initialize a hidden Screen while
+		// the real one is current. Only add widgets to the screen the player is
+		// actually on, otherwise the hidden copy replaces the live buttons and
+		// Ctrl+drag moves the invisible set.
+		if (client.screen != (Object) this) {
+			return;
+		}
 		if (this.sparethesympathy$armouryButtons != null) {
 			for (Button button : this.sparethesympathy$armouryButtons) {
 				this.removeWidget(button);

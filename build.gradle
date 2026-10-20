@@ -55,6 +55,11 @@ dependencies {
 	// runtime when it is not installed - see StsCompatMixinPlugin).
 	modCompileOnly "maven.modrinth:unofficial-monumenta-mod:${umm_version}"
 
+	// ReplayMod bundles jGui under a relocated package. The compatibility
+	// mixin targets its VanillaGuiScreen wrapper so Ctrl+drag works in replays;
+	// it is compile-only and skipped when ReplayMod is absent.
+	modCompileOnly "maven.modrinth:replaymod:${replaymod_version}"
+
 	modLocalRuntime "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 	modLocalRuntime "maven.modrinth:entity-model-features:${project.emf_version}"
 	modLocalRuntime "maven.modrinth:cit-resewn:${project.cit_resewn_version}"

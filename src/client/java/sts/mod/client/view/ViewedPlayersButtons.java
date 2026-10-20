@@ -269,6 +269,21 @@ public final class ViewedPlayersButtons {
 	}
 
 	/**
+	 * Whether the cursor is over one of the current view buttons. Used by the
+	 * ReplayMod compatibility mixin to let the vanilla mouse-down through so
+	 * ReplayMod's GUI wrapper still starts a drag.
+	 */
+	public static boolean isOverButton(double mouseX, double mouseY) {
+		if (currentButtons == null || currentButtons.isEmpty()) {
+			return false;
+		}
+		if (buttonScreen == null || Minecraft.getInstance().screen != buttonScreen) {
+			return false;
+		}
+		return indexAt(mouseX, mouseY) >= 0;
+	}
+
+	/**
 	 * Handles a Ctrl+drag that starts over one of the view buttons. Called
 	 * from a mixin on {@code AbstractContainerScreen.mouseDragged} (container
 	 * screens swallow every drag and never forward it to widgets). Only the

@@ -49,6 +49,7 @@ public final class ArmouryButtons {
 	private static final int[] OFFSET_X = new int[BUTTONS.length];
 	private static final int[] OFFSET_Y = new int[BUTTONS.length];
 	private static boolean positionDirty;
+	private static Screen buttonScreen;
 	private static List<Button> currentButtons;
 
 	// Drag tracking: the dragged button follows the cursor exactly by
@@ -111,6 +112,7 @@ public final class ArmouryButtons {
 		link.setTooltip(Tooltip.create(LINK_TOOLTIP));
 
 		currentButtons = List.of(export, save, link);
+		buttonScreen = screen;
 		return currentButtons;
 	}
 
@@ -163,7 +165,7 @@ public final class ArmouryButtons {
 		if (currentButtons == null || currentButtons.isEmpty()) {
 			return false;
 		}
-		if (!ArmouryLoadoutReader.isArmouryScreen(Minecraft.getInstance().screen)) {
+		if (buttonScreen == null || Minecraft.getInstance().screen != buttonScreen) {
 			return false;
 		}
 		if (!Screen.hasControlDown()) {
@@ -185,6 +187,21 @@ public final class ArmouryButtons {
 		applyPosition(draggingIndex);
 		positionDirty = true;
 		return true;
+	}
+
+	/**
+	 * Whether the cursor is over one of the current armoury buttons. Used by
+	 * the ReplayMod compatibility mixin to let the vanilla mouse-down through
+	 * so ReplayMod's GUI wrapper still starts a drag.
+	 */
+	public static boolean isOverButton(double mouseX, double mouseY) {
+		if (currentButtons == null || currentButtons.isEmpty()) {
+			return false;
+		}
+		if (buttonScreen == null || Minecraft.getInstance().screen != buttonScreen) {
+			return false;
+		}
+		return indexAt(mouseX, mouseY) >= 0;
 	}
 
 	/** Persists the dragged button's position once the mouse is released. */

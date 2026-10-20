@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"package": "sts.mod.client.compat.replaymod.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"plugin": "sts.mod.client.compat.replaymod.StsReplayModMixinPlugin",
+	"client": [
+		"ReplayModVanillaGuiScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

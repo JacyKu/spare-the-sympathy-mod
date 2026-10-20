@@ -35,6 +35,11 @@ abstract class ViewedPlayersScreenMixin {
 
 	@Inject(method = "init(Lnet/minecraft/client/Minecraft;II)V", at = @At("TAIL"))
 	private void sparethesympathy$createViewButtons(Minecraft client, int width, int height, CallbackInfo ci) {
+		// ReplayMod initializes a hidden Screen while the real one is current;
+		// skip it so the hidden copy cannot replace the live button set.
+		if (client.screen != (Object) this) {
+			return;
+		}
 		if (this.sparethesympathy$viewButtons != null) {
 			for (Button button : this.sparethesympathy$viewButtons) {
 				this.removeWidget(button);
