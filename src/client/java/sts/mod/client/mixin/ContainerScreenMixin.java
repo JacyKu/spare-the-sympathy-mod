@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import sts.mod.client.armoury.ArmouryOverlay;
+import sts.mod.client.skills.SkillPickerOverlay;
 
 /**
  * Container screens draw their slot contents and item tooltips AFTER
@@ -20,5 +21,6 @@ abstract class ContainerScreenMixin {
 	@Inject(method = "render", at = @At("RETURN"))
 	private void sparethesympathy$armouryOverlay(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta, CallbackInfo callbackInfo) {
 		ArmouryOverlay.render(graphics, mouseX, mouseY);
+		SkillPickerOverlay.render(graphics, mouseX, mouseY);
 	}
 }

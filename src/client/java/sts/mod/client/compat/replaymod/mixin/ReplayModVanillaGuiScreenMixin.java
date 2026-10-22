@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import sts.mod.client.armoury.ArmouryButtons;
+import sts.mod.client.skills.SkillPickerOverlay;
 import sts.mod.client.view.ViewedPlayersButtons;
 
 /**
@@ -26,7 +27,9 @@ abstract class ReplayModVanillaGuiScreenMixin {
 	private void sparethesympathy$allowButtonDrag(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
 		if (button == 0
 			&& Screen.hasControlDown()
-			&& (ArmouryButtons.isOverButton(mouseX, mouseY) || ViewedPlayersButtons.isOverButton(mouseX, mouseY))) {
+			&& (ArmouryButtons.isOverButton(mouseX, mouseY)
+				|| ViewedPlayersButtons.isOverButton(mouseX, mouseY)
+				|| SkillPickerOverlay.isOverButton(mouseX, mouseY))) {
 			cir.setReturnValue(false);
 			cir.cancel();
 		}
@@ -35,7 +38,8 @@ abstract class ReplayModVanillaGuiScreenMixin {
 	@Inject(method = "mouseDrag", at = @At("HEAD"), cancellable = true)
 	private void sparethesympathy$dragButtons(double mouseX, double mouseY, int button, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
 		if (ArmouryButtons.dragIfOverButton(mouseX, mouseY, button)
-			|| ViewedPlayersButtons.dragIfOverButton(mouseX, mouseY, button)) {
+			|| ViewedPlayersButtons.dragIfOverButton(mouseX, mouseY, button)
+			|| SkillPickerOverlay.dragIfOver(mouseX, mouseY, button)) {
 			cir.setReturnValue(true);
 			cir.cancel();
 		}
@@ -45,5 +49,6 @@ abstract class ReplayModVanillaGuiScreenMixin {
 	private void sparethesympathy$endButtonDrag(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
 		ArmouryButtons.endDrag();
 		ViewedPlayersButtons.endDrag();
+		SkillPickerOverlay.endDrag();
 	}
 }

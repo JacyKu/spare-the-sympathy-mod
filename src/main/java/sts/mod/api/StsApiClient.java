@@ -10,9 +10,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Minimal HTTP client for the STS site API. Linking works with just the
@@ -217,6 +222,58 @@ public final class StsApiClient {
 			result.add(new GameClass(className, skills, specs));
 		}
 		return result;
+	}
+
+	/**
+	 * Public build skills, used by the in-game skill picker:
+	 * {@code GET /api/v2/builds/<id>/skills}. Private or unknown builds 404.
+	 */
+	public static BuildSkills fetchBuildSkills(String id) throws IOException {
+		String safeId = URLEncoder.encode(id, StandardCharsets.UTF_8);
+		JsonObject json = JsonParser.parseString(get("/api/v2/builds/" + safeId + "/skills")).getAsJsonObject();
+		JsonObject payload = json.has("payload") && json.get("payload").isJsonObject()
+			? json.getAsJsonObject("payload")
+			: new JsonObject();
+		String className = payload.has("cl") && !payload.get("cl").isJsonNull()
+			? payload.get("cl").getAsString()
+			: null;
+		String specName = payload.has("sp") && !payload.get("sp").isJsonNull()
+			? payload.get("sp").getAsString()
+			: null;
+		return new BuildSkills(
+			className,
+			specName,
+			readPointMap(payload.getAsJsonObject("sk")),
+			readPointMap(payload.getAsJsonObject("ssk")),
+			readKeySet(payload.getAsJsonObject("en"))
+		);
+	}
+
+	private static Map<String, Integer> readPointMap(JsonObject object) {
+		Map<String, Integer> points = new LinkedHashMap<>();
+		if (object == null) return points;
+		for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+			if (!entry.getValue().isJsonPrimitive()) continue;
+			int value;
+			try {
+				value = entry.getValue().getAsInt();
+			} catch (RuntimeException e) {
+				continue;
+			}
+			if (value > 0) points.put(entry.getKey(), value);
+		}
+		return points;
+	}
+
+	private static Set<String> readKeySet(JsonObject object) {
+		Set<String> keys = new LinkedHashSet<>();
+		if (object == null) return keys;
+		for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+			if (entry.getValue().isJsonPrimitive() && entry.getValue().getAsBoolean()) {
+				keys.add(entry.getKey());
+			}
+		}
+		return keys;
 	}
 
 	private static List<Ability> readAbilities(JsonArray array) {

@@ -46,6 +46,11 @@ public final class ViewedPlayers {
 	private static final long PENDING_TTL_MS = 30_000;
 	private static final Map<String, CachedPlayer> CACHE = new ConcurrentHashMap<>();
 	private static volatile Pending pending;
+	// True after /pa opened the read-only "view another player's abilities"
+	// screen. Any other command ends that state. The class-selection GUI uses
+	// the same title for both, so this is how the helper tells them apart.
+	private static volatile boolean abilitiesView;
+	private static volatile boolean abilitiesViewSelf;
 
 	private ViewedPlayers() {
 	}
@@ -63,7 +68,13 @@ public final class ViewedPlayers {
 			return;
 		}
 		long now = System.currentTimeMillis();
-		switch (parts[0].toLowerCase(Locale.ROOT)) {
+		String commandName = parts[0].toLowerCase(Locale.ROOT);
+		// /playerabilities (alias /pa) is the read-only view of your own or
+		// another player's skills. The class-selection room opens the editable
+		// GUI instead. Any other command clears the read-only marker.
+		abilitiesView = false;
+		abilitiesViewSelf = false;
+		switch (commandName) {
 			case "ps", "playerstats" -> {
 				String first = argument(parts, 1);
 				String second = argument(parts, 2);
@@ -92,6 +103,8 @@ public final class ViewedPlayers {
 			}
 			case "pa", "playerabilities" -> {
 				String target = argumentOrSelf(parts, 1);
+				abilitiesView = true;
+				abilitiesViewSelf = target.equalsIgnoreCase(selfName());
 				pending = new Pending(Kind.ABILITIES, target, null, now);
 				cache(target);
 				resetAbilities(target);
@@ -168,6 +181,22 @@ public final class ViewedPlayers {
 
 	public static void clearPending() {
 		pending = null;
+	}
+
+	/** Whether the open Class Selection GUI is the read-only /pa view. */
+	public static boolean isAbilitiesView() {
+		return abilitiesView;
+	}
+
+	/** Whether that /pa view is for the local player rather than someone else. */
+	public static boolean isAbilitiesViewSelf() {
+		return abilitiesViewSelf;
+	}
+
+	/** Called by the skill picker when a fresh editable class page is opened. */
+	public static void clearAbilitiesView() {
+		abilitiesView = false;
+		abilitiesViewSelf = false;
 	}
 
 	// ---------- cache ----------

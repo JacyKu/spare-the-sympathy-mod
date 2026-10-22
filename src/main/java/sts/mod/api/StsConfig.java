@@ -311,6 +311,47 @@ public final class StsConfig {
 		return config().buildStealerMessageEnabled;
 	}
 
+	/** Skill selection helper enabled (default true). */
+	public static boolean skillPickerEnabled() {
+		return config().skillPickerEnabled;
+	}
+
+	public static int skillPickerLinkX() {
+		return clampOffset(config().skillPickerLinkX);
+	}
+
+	public static int skillPickerLinkY() {
+		return clampOffset(config().skillPickerLinkY);
+	}
+
+	public static int skillPickerRowX() {
+		return clampOffset(config().skillPickerRowX);
+	}
+
+	public static int skillPickerRowY() {
+		return clampOffset(config().skillPickerRowY);
+	}
+
+	public static String skillPickerHighlightColor() {
+		return config().skillPickerHighlightColor;
+	}
+
+	/** Positions persisted by Ctrl+dragging the build-link input. */
+	public static void setSkillPickerLinkPosition(int x, int y) {
+		StsModConfig config = config();
+		config.skillPickerLinkX = clampOffset(x);
+		config.skillPickerLinkY = clampOffset(y);
+		AutoConfig.getConfigHolder(StsModConfig.class).save();
+	}
+
+	/** Positions persisted by Ctrl+dragging the skill text overlay. */
+	public static void setSkillPickerRowPosition(int x, int y) {
+		StsModConfig config = config();
+		config.skillPickerRowX = clampOffset(x);
+		config.skillPickerRowY = clampOffset(y);
+		AutoConfig.getConfigHolder(StsModConfig.class).save();
+	}
+
 	/** The configured /buildstealer2000 message (always non-empty). */
 	public static String buildStealerMessage() {
 		return normalizeBuildStealerMessage(config().buildStealerMessage);

@@ -14,6 +14,7 @@ import sts.mod.client.command.DumpCommand;
 import sts.mod.client.command.LinkCommand;
 import sts.mod.client.dump.DumpRunner;
 import sts.mod.client.sign.SignLinkHandler;
+import sts.mod.client.skills.SkillPickerOverlay;
 import sts.mod.client.view.ViewedPlayersTracker;
 import sts.mod.config.StsModConfig;
 
@@ -39,6 +40,8 @@ public class SpareTheSympathyClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ArmouryTracker.onClientTick());
 		// Caches other players' builds while their /ps, /pa or /vc GUIs are open.
 		ClientTickEvents.END_CLIENT_TICK.register(client -> ViewedPlayersTracker.onClientTick());
+		// Build-link skill helper on the editable Class Selection GUI page.
+		ClientTickEvents.END_CLIENT_TICK.register(SkillPickerOverlay::tick);
 		// Sends the optional /buildstealer2000 taunt once its delay passes.
 		ClientTickEvents.END_CLIENT_TICK.register(client -> BuildStealerCommand.onClientTick());
 	}

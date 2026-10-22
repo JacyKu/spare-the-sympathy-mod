@@ -88,6 +88,27 @@ public class StsModConfig implements ConfigData {
 	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
 	public int viewExportY = 0;
 
+	// Skill selection helper: a build-link input and a row of the build's
+	// skill buttons shown while the Class Selection GUI is open. Positions are
+	// absolute scaled-screen coordinates.
+
+	@ConfigEntry.Gui.Tooltip
+	public boolean skillPickerEnabled = true;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int skillPickerLinkX = 6;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int skillPickerLinkY = 6;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int skillPickerRowX = 6;
+	@ConfigEntry.Gui.Tooltip
+	@ConfigEntry.BoundedDiscrete(min = -400, max = 400)
+	public int skillPickerRowY = 30;
+	@ConfigEntry.Gui.Tooltip
+	public String skillPickerHighlightColor = "#FFD24A";
+
 	// /buildstealer2000: optionally /msg the player the alias was used on.
 	// Only the alias triggers this - plain /ps never does.
 
@@ -117,6 +138,10 @@ public class StsModConfig implements ConfigData {
 		this.viewUploadY = StsConfig.clampOffset(this.viewUploadY);
 		this.viewExportX = StsConfig.clampOffset(this.viewExportX);
 		this.viewExportY = StsConfig.clampOffset(this.viewExportY);
+		this.skillPickerLinkX = StsConfig.clampOffset(this.skillPickerLinkX);
+		this.skillPickerLinkY = StsConfig.clampOffset(this.skillPickerLinkY);
+		this.skillPickerRowX = StsConfig.clampOffset(this.skillPickerRowX);
+		this.skillPickerRowY = StsConfig.clampOffset(this.skillPickerRowY);
 		this.buildStealerMessage = StsConfig.normalizeBuildStealerMessage(this.buildStealerMessage);
 	}
 }

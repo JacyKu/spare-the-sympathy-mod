@@ -7,6 +7,7 @@
 		"ArmouryScreenMixin",
 		"ClientPacketListenerMixin",
 		"ContainerScreenMixin",
+		"ScreenWidgetAccessor",
 		"ViewedPlayersScreenMixin"
 	],
 	"injectors": {
